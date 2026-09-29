@@ -1,0 +1,17 @@
+{
+  "name": "@talewinds/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@talewinds/core": "workspace:*",
+    "@talewinds/db": "workspace:*",
+    "@talewinds/runtime": "workspace:*"
+  }
+}

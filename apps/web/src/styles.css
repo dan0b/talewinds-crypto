@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Components use these semantic names (bg-surface, text-muted,
+ * …) rather than raw palette colors, so the theme can change in one place.
+ */
+@theme {
+  --color-canvas: oklch(0.16 0.01 260);
+  --color-surface: oklch(0.2 0.012 260);
+  --color-border: oklch(0.3 0.015 260);
+  --color-fg: oklch(0.95 0.005 260);
+  --color-muted: oklch(0.68 0.015 260);
+  --color-accent: oklch(0.72 0.14 250);
+  --color-ok: oklch(0.74 0.15 155);
+  --color-bad: oklch(0.68 0.19 25);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-canvas text-fg font-sans antialiased;
+}

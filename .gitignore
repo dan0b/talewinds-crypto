@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Secrets — never commit. Copy .env.example to .env.
+.env
+.env.*
+!.env.example

@@ -1,0 +1,23 @@
+{
+  "name": "@talewinds/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run --passWithNoTests",
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@talewinds/core": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.10"
+  }
+}

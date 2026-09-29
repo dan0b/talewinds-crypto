@@ -1,0 +1,23 @@
+{
+  "name": "@talewinds/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@talewinds/core": "workspace:*",
+    "@talewinds/db": "workspace:*",
+    "@talewinds/runtime": "workspace:*",
+    "hono": "4.13.8",
+    "zod": "4.6.5"
+  }
+}

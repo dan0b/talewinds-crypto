@@ -1,0 +1,31 @@
+{
+  "name": "talewinds-crypto",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.5.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm db:up && pnpm db:migrate && turbo run dev",
+    "tw": "tsx apps/cli/src/main.ts",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @talewinds/db generate",
+    "db:migrate": "pnpm tw db migrate",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "boundaries": "tsx tooling/scripts/check-boundaries.ts",
+    "check": "pnpm lint && pnpm boundaries && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/node": "26.6.2",
+    "tsx": "4.23.15",
+    "turbo": "2.11.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}

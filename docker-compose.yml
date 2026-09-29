@@ -1,0 +1,22 @@
+name: talewinds
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: talewinds
+      POSTGRES_PASSWORD: talewinds
+      POSTGRES_DB: talewinds
+    ports:
+      # Bound to localhost only — never expose the database on the network.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talewinds -d talewinds"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

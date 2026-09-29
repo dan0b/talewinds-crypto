@@ -1,0 +1,25 @@
+packages:
+  - apps/*
+  - packages/*
+
+# --- Supply-chain hardening (see docs/adr/0005-typescript-monorepo.md) ---
+
+# Never install a version published less than 7 days ago. Most malicious npm
+# releases are caught and pulled within hours to days.
+minimumReleaseAge: 10080
+
+# Fail if a package's publishing trust level drops between releases (e.g. a
+# release suddenly lacks the provenance its predecessors had — a common sign of
+# a hijacked maintainer account).
+trustPolicy: no-downgrade
+
+# Dependency install scripts are blocked unless explicitly allowed here.
+# Review a package before adding it.
+strictDepBuilds: true
+allowBuilds:
+  # Its install script only swaps in a faster native shim; the platform
+  # binary already arrives via optionalDependencies, so it works without it.
+  esbuild: false
+
+# Record exact versions; upgrades are deliberate.
+saveExact: true

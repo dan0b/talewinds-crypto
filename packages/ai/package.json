@@ -1,0 +1,17 @@
+{
+  "name": "@talewinds/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@talewinds/core": "workspace:*",
+    "@talewinds/db": "workspace:*"
+  }
+}

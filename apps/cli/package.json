@@ -1,0 +1,17 @@
+{
+  "name": "@talewinds/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@talewinds/core": "workspace:*",
+    "@talewinds/db": "workspace:*",
+    "@talewinds/runtime": "workspace:*",
+    "commander": "15.0.0",
+    "zod": "4.6.5"
+  }
+}
