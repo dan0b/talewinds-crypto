@@ -11,6 +11,7 @@ built.
 | `adr/` | One short record per decision: `NNNN-kebab-title.md` |
 | `briefs/` | One brief per roadmap step: `NN-<slug>.md`, written *before* building |
 | `build-logs/` | One per completed step: `YYYY-MM-DD-<slug>.md`, written *after* building |
+| `handoffs/` | Session handoffs: `YYYY-MM-DD-handoff.md`, a snapshot of state for the next session |
 
 ## Rules
 
@@ -44,6 +45,12 @@ built.
   that supersedes it and set the old one's status to `Superseded by NNNN`.
 - **Format:** title, status, date, then Context / Decision / Consequences. Keep it short, one
   decision per ADR, and add it to the table in `VISION.md`.
+
+### Handoffs
+
+- Written when work moves to a new session: what was done, the current state, and what's next.
+  A dated snapshot, never edited afterwards; write a new one rather than updating an old one.
+- No wallet addresses and no secrets: point to `pnpm tw wallet list` or the database instead.
 
 ### Everything else
 
