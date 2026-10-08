@@ -6,6 +6,10 @@ import pg from 'pg';
 import * as schema from './schema/index.ts';
 
 export type Db = NodePgDatabase<typeof schema>;
+/** A transaction handle from `db.transaction(tx => …)`. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+/** Anything repos can run queries on: the database or an open transaction. */
+export type Executor = Db | Tx;
 
 export interface Database {
   db: Db;

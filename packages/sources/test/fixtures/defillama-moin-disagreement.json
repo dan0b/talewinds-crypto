@@ -1,0 +1,18 @@
+{
+  "coins": {
+    "solana:8DXqVUopcdviLvujTcpwEqkKzB43Arp6E1axzsEE5Btq": {
+      "decimals": 6,
+      "symbol": "MOIN",
+      "price": 0.020425422292320576,
+      "timestamp": 1790653610,
+      "confidence": 0.99
+    },
+    "solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+      "decimals": 6,
+      "symbol": "usdc",
+      "price": 0.9998606309641136,
+      "timestamp": 1790654150,
+      "confidence": 0.99
+    }
+  }
+}

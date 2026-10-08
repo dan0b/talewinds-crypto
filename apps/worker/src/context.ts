@@ -1,8 +1,14 @@
-import type { BaseEnv, Queue, Runtime } from '@talewinds/runtime';
+import { type PortfolioDeps, PortfolioEnv } from '@talewinds/portfolio';
+import { BaseEnv, type Queue, type Runtime } from '@talewinds/runtime';
+import type { z } from 'zod';
 
-/** What every job handler gets. Add shared clients (sources, ai) here as slices need them. */
+export const WorkerEnv = BaseEnv.extend(PortfolioEnv.shape);
+export type WorkerEnv = z.infer<typeof WorkerEnv>;
+
+/** What every job handler gets. Add shared clients here as slices need them. */
 export interface WorkerContext {
-  runtime: Runtime<BaseEnv>;
+  runtime: Runtime<WorkerEnv>;
   queue: Queue;
   workerId: string;
+  portfolio: PortfolioDeps;
 }

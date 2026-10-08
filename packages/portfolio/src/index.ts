@@ -1,3 +1,8 @@
-// Intentionally empty until its first slice lands. See ./CLAUDE.md for this
-// package's purpose, planned structure, and rules.
-export {};
+export * from './assets.ts';
+export * from './config.ts';
+export type { Log, PortfolioDeps } from './deps.ts';
+export * from './holdings.ts';
+export * from './prices.ts';
+export * from './setup.ts';
+export * from './sync.ts';
+export * from './wallets.ts';

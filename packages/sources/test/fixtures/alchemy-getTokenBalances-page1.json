@@ -1,0 +1,23 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "tokenBalances": [
+      {
+        "contractAddress": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+        "tokenBalance": "0x0000000000000000000000000000000000000000000000001bc16d674ec80000"
+      },
+      {
+        "contractAddress": "0x0339f5459fc690ac85f1782e15782a151b4a9e1b",
+        "tokenBalance": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "contractAddress": "0x2222222222222222222222222222222222222222",
+        "tokenBalance": null,
+        "error": "execution reverted"
+      }
+    ],
+    "pageKey": "page-2-key"
+  }
+}

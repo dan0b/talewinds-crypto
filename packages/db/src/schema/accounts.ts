@@ -30,6 +30,27 @@ export const entities = pgTable(
 );
 
 /**
+ * An address you (or someone you track) controls, spanning every chain of its family: one EVM
+ * address is one wallet on Ethereum, Robinhood Chain, and any other EVM chain; a Solana address is
+ * one wallet on Solana. Groups its per-chain accounts and carries the name you give it (ADR 0016).
+ */
+export const wallets = pgTable(
+  'wallets',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    family: text('family').notNull(),
+    /** Normalized (EVM lowercase; Solana case-sensitive). */
+    address: text('address').notNull(),
+    name: text('name'),
+    ...timestamps,
+  },
+  (t) => [
+    check('wallets_family', sql`${t.family} in ('evm', 'solana')`),
+    uniqueIndex('wallets_family_address').on(t.family, t.address),
+  ],
+);
+
+/**
  * Every wallet or venue account the platform knows about — yours or anyone
  * else's. `ownership` decides which calculations run on its data.
  */
@@ -47,6 +68,8 @@ export const accounts = pgTable(
     address: text('address'),
     venue: text('venue'),
     entityId: uuid('entity_id').references(() => entities.id, { onDelete: 'set null' }),
+    /** The wallet this chain account belongs to (wallet accounts only). */
+    walletId: uuid('wallet_id').references(() => wallets.id, { onDelete: 'cascade' }),
     label: text('label'),
     ...timestamps,
   },
@@ -61,5 +84,7 @@ export const accounts = pgTable(
     index('accounts_ownership_idx').on(t.ownership),
     index('accounts_address_idx').on(t.address),
     index('accounts_entity_idx').on(t.entityId),
+    index('accounts_wallet_idx').on(t.walletId),
+    check('accounts_wallet_link', sql`${t.kind} <> 'wallet' or ${t.walletId} is not null`),
   ],
 );

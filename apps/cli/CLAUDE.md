@@ -8,7 +8,8 @@ daily use — that's the dashboard.
 - `src/context.ts` — `withRuntime(fn)`: gives a command env + db + logger and always shuts down.
 - `src/commands/*.ts` — one file per area; each exports `register…Commands(program)`.
 
-Current commands: `db migrate`, `status`, `ping`, `account add`, `account list`.
+Current commands: `db migrate`, `status`, `ping`, `account add`, `account list`, `sync [--account
+<ref>]` (runs in-process, no worker needed), `holdings [--all]`, `asset status <ref> <status>`.
 
 ## Rules
 

@@ -24,6 +24,8 @@ export interface ChainInfo {
   name: string;
   nativeSymbol: string;
   nativeDecimals: number;
+  /** SLIP-44 coin type of the native asset, used in its CAIP-19 ID (ETH = 60, SOL = 501). */
+  nativeSlip44: number;
 }
 
 const chain = (info: Omit<ChainInfo, 'id'> & { id: string }): ChainInfo => ({
@@ -40,6 +42,7 @@ export const CHAINS = {
     name: 'Ethereum',
     nativeSymbol: 'ETH',
     nativeDecimals: 18,
+    nativeSlip44: 60,
   }),
   robinhood: chain({
     key: 'robinhood',
@@ -48,6 +51,8 @@ export const CHAINS = {
     name: 'Robinhood Chain',
     nativeSymbol: 'ETH',
     nativeDecimals: 18,
+    // The native gas asset is ETH, so it shares ETH's coin type.
+    nativeSlip44: 60,
   }),
   solana: chain({
     key: 'solana',
@@ -57,6 +62,7 @@ export const CHAINS = {
     name: 'Solana',
     nativeSymbol: 'SOL',
     nativeDecimals: 9,
+    nativeSlip44: 501,
   }),
 } as const satisfies Record<string, ChainInfo>;
 
@@ -66,6 +72,10 @@ export const CHAIN_KEYS = Object.keys(CHAINS) as [ChainKey, ...ChainKey[]];
 
 export function getChain(key: ChainKey): ChainInfo {
   return CHAINS[key];
+}
+
+export function isChainKey(value: string): value is ChainKey {
+  return Object.hasOwn(CHAINS, value);
 }
 
 export function findChainById(id: string): ChainInfo | undefined {

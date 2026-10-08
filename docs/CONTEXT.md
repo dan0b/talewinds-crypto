@@ -17,8 +17,12 @@ meanings. When a new term is introduced, add it here.
   that owns all my accounts; a KOL or a bundler **cluster** is another. Table: `entities`.
 - **Label** — a claim about an account ("insider", "sniper", "deployer"), carrying source,
   confidence, and timestamp. Data, not truth; revisable with history.
-- **Wallet** vs **venue** — a wallet lives on a chain (read via a chain adapter); a venue is an
-  exchange/app account read via its API (Coinbase, Hyperliquid).
+- **Wallet** — an address you control, spanning every chain of its family (one EVM address = one
+  wallet on Ethereum and Robinhood Chain; a Solana address = one wallet on Solana). It has a name
+  and groups its per-chain accounts. Table: `wallets`. See [ADR 0016](adr/0016-wallets.md).
+- **Wallet account** vs **venue account** — a wallet account is one wallet on one chain (read via a
+  chain adapter); a venue account is an exchange/app account read via its API (Coinbase,
+  Hyperliquid).
 - **Chain family** — chains sharing an address format and adapter: `evm` (Ethereum, Robinhood
   Chain) and `solana`.
 - **CAIP-2 / CAIP-10 / CAIP-19** — standard IDs for chains, accounts, and assets.
@@ -27,7 +31,8 @@ meanings. When a new term is introduced, add it here.
 
 - **Source / adapter** — code that reads one provider or chain family. Lives in
   `packages/sources`.
-- **Raw record** — an immutable provider response, stored as received. Never edited.
+- **Raw record** — an immutable provider response, stored as received and deduplicated by
+  provider + request + content. Insert-only, enforced by a database trigger.
 - **Canonical event** — a chain-agnostic interpretation of raw records: `transfer`,
   `internal_move`, `trade`/`fill`, `fee`, `funding_payment`, `perp_*`, `reward`, `lp_*`,
   `unclassified`.
@@ -40,6 +45,26 @@ meanings. When a new term is introduced, add it here.
   means the ledger is complete.
 - **Accounting-grade vs analytics-grade** — exact, reconciled numbers (owned accounts) vs
   approximate behavior analysis, labeled as approximate (tracked accounts).
+- **Sync run** — one attempt to read an account's balances (`sync_runs`). Its status is `succeeded`,
+  `partial` (finished, but couldn't see everything; its notes say what), or `failed`. Holdings come
+  from each account's newest succeeded-or-partial run.
+- **Balance snapshot** — what an account held at one sync run, linked to the raw record it came
+  from. Zero balances aren't stored.
+- **Asset status** — `verified` (counted), `unverified` (hidden, not counted), or `spam` (marked by
+  you). Set automatically or manually; manual wins. See
+  [ADR 0014](adr/0014-asset-verification.md).
+- **Price confidence** — `high` or `low`. High needs a deep market (≥ $50K liquidity) and no source
+  disagreement. Low-confidence value is shown separately. See
+  [ADR 0015](adr/0015-pricing-on-chain-first.md).
+- **Cross-check** — DefiLlama's price compared against the on-chain market price. A difference over
+  25% is a **disagreement**: the on-chain price is used and the disagreement is shown.
+- **Market data** — market cap, FDV, and liquidity from the price's own source, stored with it.
+- **Thin liquidity (illiquid)** — a position worth more than 10% of its pool's liquidity; its value
+  probably can't be realized at that price.
+- **Stale** — balances or prices older than their threshold (by default: balances after two missed
+  syncs, prices after an hour). Stale data is shown, flagged, never hidden.
+- **Note** — a machine-readable remark on a result (`code` + `message`): something skipped,
+  missing, or approximate. Surfaced to the user rather than dropped.
 - **Raw amount** — an integer quantity in a token's smallest unit (wei, lamports). Always `bigint`.
 - **Dec** — the decimal type for human-scale values (prices, USD values). Never JS `number`.
 

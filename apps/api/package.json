@@ -10,13 +10,15 @@
     "dev": "tsx watch --clear-screen=false src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude '**/*.int.test.ts'"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
     "@talewinds/core": "workspace:*",
     "@talewinds/db": "workspace:*",
+    "@talewinds/portfolio": "workspace:*",
     "@talewinds/runtime": "workspace:*",
+    "@talewinds/sources": "workspace:*",
     "hono": "4.13.8",
     "zod": "4.6.5"
   }

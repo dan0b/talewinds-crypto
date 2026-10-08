@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude '**/*.int.test.ts'"
   },
   "dependencies": {
     "@talewinds/core": "workspace:*",
     "@talewinds/db": "workspace:*",
+    "@talewinds/portfolio": "workspace:*",
     "@talewinds/runtime": "workspace:*",
+    "@talewinds/sources": "workspace:*",
     "commander": "15.0.0",
     "zod": "4.6.5"
   }

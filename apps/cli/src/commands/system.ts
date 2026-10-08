@@ -46,6 +46,7 @@ export function registerSystemCommands(program: Command): void {
 
         const started = Date.now();
         const id = await queue.send(JOBS.systemPing, note ? { note } : {});
+        if (!id) throw new Error('The queue declined the ping job');
         const result = await queue.waitForResult(JOBS.systemPing, id);
         console.log(`pong from ${result.workerId} in ${Date.now() - started}ms`, result.note ?? '');
       }),

@@ -1,0 +1,71 @@
+[
+  {
+    "chainId": "robinhood",
+    "dexId": "uniswap",
+    "url": "https://dexscreener.com/robinhood/0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+    "pairAddress": "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca",
+    "labels": ["v3"],
+    "baseToken": {
+      "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "name": "WETH",
+      "symbol": "WETH"
+    },
+    "quoteToken": {
+      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "name": "Global Dollar",
+      "symbol": "USDG"
+    },
+    "priceNative": "2656.2288",
+    "priceUsd": "2656.22",
+    "txns": {
+      "m5": { "buys": 399, "sells": 376 },
+      "h1": { "buys": 6498, "sells": 6058 },
+      "h6": { "buys": 34208, "sells": 33769 },
+      "h24": { "buys": 180614, "sells": 176964 }
+    },
+    "volume": { "h24": 401308083.91, "h6": 68612853.6, "h1": 19584504.7, "m5": 1081525.64 },
+    "priceChange": { "m5": 0.12, "h1": -0.18, "h6": -0.97, "h24": 0.18 },
+    "liquidity": { "usd": 20084242.12, "base": 3917.2571, "quote": 9679110 },
+    "fdv": 98822054,
+    "marketCap": 98822054,
+    "pairCreatedAt": 1783025468000
+  },
+  {
+    "chainId": "robinhood",
+    "dexId": "uniswap",
+    "url": "https://dexscreener.com/robinhood/0x9501a20bedb8bea0798fe5d4c411f5e270965d49",
+    "pairAddress": "0x9501A20Bedb8beA0798FE5D4c411f5e270965D49",
+    "labels": ["v3"],
+    "baseToken": {
+      "address": "0x0339f5459FC690aC85F1782e15782A151b4A9E1b",
+      "name": "Robinhood Wallet",
+      "symbol": "WALLET"
+    },
+    "quoteToken": {
+      "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "name": "WETH",
+      "symbol": "WETH"
+    },
+    "priceNative": "0.00001579",
+    "priceUsd": "0.04193",
+    "txns": {
+      "m5": { "buys": 3, "sells": 1 },
+      "h1": { "buys": 60, "sells": 25 },
+      "h6": { "buys": 384, "sells": 332 },
+      "h24": { "buys": 1716, "sells": 1374 }
+    },
+    "volume": { "h24": 1729876.82, "h6": 537965.47, "h1": 40032.94, "m5": 181.35 },
+    "priceChange": { "m5": 0.06, "h1": -3.83, "h6": -3.72, "h24": 7.57 },
+    "liquidity": { "usd": 3219154.62, "base": 55284089, "quote": 339.3128 },
+    "fdv": 39635476,
+    "marketCap": 39635476,
+    "pairCreatedAt": 1783645324000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/I2L-IaR50qberU4d?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/7nG68p6Jwved9Gya?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/robinhood/0x0339f5459fc690ac85f1782e15782a151b4a9e1b?timestamp=1790649600000",
+      "websites": [],
+      "socials": []
+    }
+  }
+]

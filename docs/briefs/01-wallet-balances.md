@@ -1,10 +1,10 @@
 # 01 — Wallet balances: Ethereum, Robinhood Chain, Solana
 
 - **Phase:** V0a — What do I own
-- **Status:** Ready
+- **Status:** ✅ Done (follow-up: verify Robinhood Chain tokens once an Alchemy key is set)
 - **Depends on:** [00 Scaffold](00-scaffold.md)
 - **Written:** 2026-09-27
-- **Build log:** —
+- **Build log:** [`2026-09-28-wallet-balances`](../build-logs/2026-09-28-wallet-balances.md)
 
 ## Goal
 
@@ -57,34 +57,55 @@ capability → API → dashboard — so it proves the path every later step reus
 
 ## Approach notes
 
-- **Candidate providers** (verify free-tier limits at build time):
-  - Robinhood Chain: its official explorer is Blockscout (`robinhoodchain.blockscout.com`), whose
-    API can list an address's token balances.
-  - Ethereum: an Etherscan-family API or Alchemy's free tier.
-  - Solana: Helius free tier or public RPC.
-  - Prices: CoinGecko Demo, DexScreener, GeckoTerminal, or Jupiter (Solana).
+- **Providers** (tested live on 2026-09-28; see Decisions below).
 - An asset with no price shows as **"no price"**, not $0. Its value is left out of totals, with a
   visible note saying so.
-- Spam airdrops are common on both chain families. Start with a simple rule (no price and not
-  verified ⇒ `unverified`, hidden by default) plus a manual "mark as spam" that keeps history.
+- **Spam handling.** Provider reputation flags don't discriminate (Blockscout marked all 6,794
+  ERC-20s in a heavily airdropped test wallet `ok`), so verification is our own rule: an asset is
+  `verified` if it's a chain's native asset, DefiLlama prices it with high confidence, Jupiter marks
+  it verified (Solana), or you mark it verified. Everything else is `unverified` and hidden by
+  default (the toggle shows it). Manual "mark as spam" / "mark as verified" overrides keep history.
+- **Totals** include visible (verified) priced assets only. Hidden assets are counted in a note
+  ("N unverified tokens hidden, ≈ $X") rather than inflating the total.
+- **Decimals** come from chain data: either read directly via RPC, or taken from an indexer that
+  reads them from the contract (Blockscout, Alchemy, Solana parsed accounts). The source is
+  recorded. A token with no readable decimals is skipped and recorded as a gap in the sync run.
+- **Token metadata is untrusted input.** One live Robinhood Chain token has a symbol thousands of
+  characters long. Symbols and names are length-capped and stripped of control characters before
+  storage, and are never interpreted as anything but display text.
+- **A sync that couldn't see everything is `partial`, not `succeeded`** (e.g. Robinhood Chain
+  without an Alchemy key: native ETH only). The dashboard shows partial accounts as incomplete.
 
 ## Acceptance criteria
 
-- [ ] After registering real wallets on all three chains and running `pnpm tw sync`, balances
-      match the block explorers (spot-checked) and show USD values.
-- [ ] Every balance and price shows its source and age; data older than the staleness threshold is
+- [x] After registering real wallets on all three chains and running `pnpm tw sync`, balances
+      match the block explorers (spot-checked) and show USD values. *Ethereum and Solana verified
+      exactly against independent sources; Robinhood Chain native ETH works, and its tokens await an
+      Alchemy key (see build log).*
+- [x] Every balance and price shows its source and age; data older than the staleness threshold is
       visibly flagged.
-- [ ] Unpriced and unverified tokens are visible via the toggle. They are never silently dropped
+- [x] Unpriced and unverified tokens are visible via the toggle. They are never silently dropped
       and never shown as $0.
-- [ ] Every balance snapshot links to the raw record it came from.
-- [ ] Syncs respect provider rate limits, and adapter tests run from recorded fixtures, not live
+- [x] Every balance snapshot links to the raw record it came from.
+- [x] Syncs respect provider rate limits, and adapter tests run from recorded fixtures, not live
       calls.
-- [ ] Integration tests for repos and capabilities run against the test database.
+- [x] Integration tests for repos and capabilities run against the test database.
 
-## Open questions
+## Decisions (resolved 2026-09-28, before building)
 
-- Which ERC-20 discovery provider for Ethereum on a free tier? Does Blockscout's API cover
-  Robinhood Chain adequately?
-- Default sync interval given free-tier limits (proposal: 15 minutes).
-- Should integration tests run inside `pnpm check` (which would require Docker to be running) or as
-  a separate `pnpm test:db`?
+- **Providers:**
+
+  | Need | Ethereum | Robinhood Chain | Solana |
+  |---|---|---|---|
+  | Native balance | Public RPC (publicnode), or Alchemy if a key is set | Robinhood public RPC (`rpc.mainnet.chain.robinhood.com`), or Alchemy if a key is set | Public RPC (`api.mainnet-beta.solana.com`), overridable, e.g. with Helius |
+  | Token discovery | Blockscout API v2 (`eth.blockscout.com`, keyless) | **Alchemy Token API (free key required)**. The official explorer (Blockscout) sits behind a Cloudflare bot challenge, so it isn't usable programmatically | RPC `getTokenAccountsByOwner` (Token + Token-2022 programs) |
+  | Token metadata | Blockscout (inline) | Alchemy `getTokenMetadata` | Jupiter Tokens API v2 (batch, includes verification) |
+  | Prices | DefiLlama (primary, all three chains + natives), DexScreener fallback (capped) | same | same |
+
+  Robinhood's docs recommend Alchemy as the RPC provider, and Alchemy's launch announcement lists
+  its token, transfer, price, and webhook APIs on the chain. Until an Alchemy key is set, Robinhood
+  Chain syncs are `partial` (native ETH only).
+- **Sync interval:** 15 minutes by default, configurable. Prices refresh in the same cycle.
+- **Integration tests run inside `pnpm check`**, against a separate `talewinds_test` database in
+  the same container. `pnpm check` starts Postgres if needed. A check that skips tests silently
+  when Docker is down would hide failures.

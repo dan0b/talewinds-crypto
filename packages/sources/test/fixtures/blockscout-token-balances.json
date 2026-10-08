@@ -1,0 +1,202 @@
+[
+  {
+    "token": {
+      "address_hash": "0x9cdf242Ef7975D8c68D5C1F5B6905801699b1940",
+      "circulating_market_cap": "0",
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": "0.00003435",
+      "holders_count": "24840",
+      "icon_url": "https://assets.coingecko.com/coins/images/52513/small/logo_%2827%29.png?1733497755",
+      "name": "WhiteRock",
+      "reputation": "ok",
+      "symbol": "WHITE",
+      "total_supply": "1000000000000000000000000000000",
+      "type": "ERC-20",
+      "volume_24h": "159.4295686973371"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "10000000000000000000000000000"
+  },
+  {
+    "token": {
+      "address_hash": "0x28561B8A2360F463011c16b6Cc0B0cbEF8dbBcad",
+      "circulating_market_cap": "1702315.942539026",
+      "circulating_supply": null,
+      "decimals": "9",
+      "exchange_rate": "0.00000405",
+      "holders_count": "44874",
+      "icon_url": "https://assets.coingecko.com/coins/images/50348/small/1000000612.jpg?1727248974",
+      "name": "MOO DENG",
+      "reputation": "ok",
+      "symbol": "MOODENG",
+      "total_supply": "420690000000000000000",
+      "type": "ERC-20",
+      "volume_24h": "140601.51668196515"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "30002309255968834506"
+  },
+  {
+    "token": {
+      "address_hash": "0xdd974D5C2e2928deA5F71b9825b8b646686BD200",
+      "circulating_market_cap": "1533691.229906682",
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": "0.141717",
+      "holders_count": "89806",
+      "icon_url": "https://assets.coingecko.com/coins/images/947/small/logo-kncl.png?1696502063",
+      "name": "Kyber Network Crystal Legacy",
+      "reputation": "ok",
+      "symbol": "KNCL",
+      "total_supply": "11252857430555909248597773",
+      "type": "ERC-20",
+      "volume_24h": "42.0757743536252"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "700008531373791941118514"
+  },
+  {
+    "token": {
+      "address_hash": "0x0027449Bf0887ca3E431D263FFDeFb244D95b555",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "1632",
+      "icon_url": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x0027449Bf0887ca3E431D263FFDeFb244D95b555/logo.png",
+      "name": "Not",
+      "reputation": "ok",
+      "symbol": "NOT",
+      "total_supply": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "type": "ERC-20",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+  },
+  {
+    "token": {
+      "address_hash": "0x96228bA6b17C36a26E2A42d4Ad2256e755e4e726",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "20253",
+      "icon_url": null,
+      "name": "Token",
+      "reputation": "ok",
+      "symbol": "ERC20",
+      "total_supply": "14474011154664524427946373126085988481658748083205070504932198000989141204991",
+      "type": "ERC-20",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "4370586288129654418856989032351655378288177808341350835756128954937619645330"
+  },
+  {
+    "token": {
+      "address_hash": "0x2160b3F4B6b3363Ba3006AC6BF57498DA7194aE6",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "15",
+      "icon_url": null,
+      "name": "MOCO",
+      "reputation": "ok",
+      "symbol": "MOCO",
+      "total_supply": "4206900000000000000000000000000000000000000000000000000000",
+      "type": "ERC-20",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "4206899999999999999999998587184858718633505814276971012073"
+  },
+  {
+    "token": {
+      "address_hash": "0x6B491AE7f8E15B6FBec0D4F084F6C42763e9ea4F",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": null,
+      "exchange_rate": null,
+      "holders_count": "2",
+      "icon_url": null,
+      "name": null,
+      "reputation": "ok",
+      "symbol": null,
+      "total_supply": "2100000000000000000000000",
+      "type": "ERC-20",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "300000000000000000000000"
+  },
+  {
+    "token": {
+      "address_hash": "0xd0Af9Cb063251540A5c71E87d11301a7dcbB295d",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "9",
+      "exchange_rate": null,
+      "holders_count": "25",
+      "icon_url": null,
+      "name": "ShibaFlokiSafemoonBabyDogeSaitamaKishuCultPepeTsukaAkitaEmaxMononokeShinjaKishimotoPOMMongEverriseGMEDogeElonMarsBoneTarareumLillieFinanceGroveWagmiOptimusNFAIEtor0x0",
+      "reputation": "ok",
+      "symbol": "CRYPTO.5",
+      "total_supply": "1000000000000",
+      "type": "ERC-20",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "29300180640"
+  },
+  {
+    "token": {
+      "address_hash": "0x1B41DAB3E36aDc5C17dD66148DDD967AdCc814Dc",
+      "circulating_market_cap": null,
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": null,
+      "holders_count": "4",
+      "icon_url": null,
+      "name": "Calculator",
+      "reputation": "ok",
+      "symbol": "CALCULATOR",
+      "total_supply": "1000000000000000000000",
+      "type": "ERC-721",
+      "volume_24h": null
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "1000000000000000000"
+  },
+  {
+    "token": {
+      "address_hash": "0x1111111111111111111111111111111111111111",
+      "circulating_market_cap": "0",
+      "circulating_supply": null,
+      "decimals": "18",
+      "exchange_rate": "0.00003435",
+      "holders_count": "24840",
+      "icon_url": "https://assets.coingecko.com/coins/images/52513/small/logo_%2827%29.png?1733497755",
+      "name": "WhiteRock",
+      "reputation": "ok",
+      "symbol": "WHITE",
+      "total_supply": "1000000000000000000000000000000",
+      "type": "ERC-20",
+      "volume_24h": "159.4295686973371"
+    },
+    "token_id": null,
+    "token_instance": null,
+    "value": "0"
+  }
+]

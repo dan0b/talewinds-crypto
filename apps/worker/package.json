@@ -7,11 +7,14 @@
     "dev": "tsx watch --clear-screen=false src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude '**/*.int.test.ts'"
   },
   "dependencies": {
     "@talewinds/core": "workspace:*",
     "@talewinds/db": "workspace:*",
-    "@talewinds/runtime": "workspace:*"
+    "@talewinds/portfolio": "workspace:*",
+    "@talewinds/runtime": "workspace:*",
+    "@talewinds/sources": "workspace:*",
+    "zod": "4.6.5"
   }
 }

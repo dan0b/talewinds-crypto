@@ -12,6 +12,7 @@
   --color-muted: oklch(0.68 0.015 260);
   --color-accent: oklch(0.72 0.14 250);
   --color-ok: oklch(0.74 0.15 155);
+  --color-warn: oklch(0.8 0.14 80);
   --color-bad: oklch(0.68 0.19 25);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;

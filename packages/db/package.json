@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/test-db.ts"
   },
   "scripts": {
     "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --exclude '**/*.int.test.ts'",
     "generate": "drizzle-kit generate"
   },
   "dependencies": {

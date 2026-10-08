@@ -35,8 +35,9 @@ there.
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Start Postgres, apply migrations, run api + worker + web (http://localhost:5173) |
-| `pnpm check` | Lint, boundaries, typecheck, tests. **Must pass before work is done.** |
-| `pnpm tw <cmd>` | Operations CLI (`pnpm tw --help`) |
+| `pnpm check` | Lint, boundaries, typecheck, unit + integration tests. **Must pass before work is done.** |
+| `pnpm test:int` | Integration tests (`*.int.test.ts`) against the `talewinds_test` database |
+| `pnpm tw <cmd>` | Operations CLI (`pnpm tw --help`): `sync`, `holdings`, `account add`, … |
 | `pnpm db:generate` | Generate a migration after editing `packages/db/src/schema` |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm format` | Auto-fix formatting and import order |
@@ -70,8 +71,11 @@ there.
 11. **Verify APIs against installed versions.** The toolchain is recent (TypeScript 7, pnpm 12,
     Vite 8, Vitest 5, AI SDK 7, pg-boss 12). Read the type definitions in `node_modules` rather
     than relying on memory.
-12. **Imports use explicit `.ts` extensions** for relative paths; no enums or namespaces
-    (`erasableSyntaxOnly`).
+12. **Imports use explicit `.ts` extensions** for relative paths; no enums, namespaces, or
+    constructor parameter properties (`erasableSyntaxOnly`).
+13. **The dev database holds the user's real accounts.** Never delete or modify accounts you didn't
+    create. Test data you add by hand gets a `test-` label and is removed afterwards. Automated tests
+    use the separate `talewinds_test` database only.
 
 ## Documentation workflow
 

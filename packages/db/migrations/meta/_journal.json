@@ -8,6 +8,34 @@
       "when": 1790543677161,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790649125182,
+      "tag": "0001_v0a_balances",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790649141368,
+      "tag": "0002_raw_records_insert_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790650364551,
+      "tag": "0003_raw_records_dedupe_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790654306173,
+      "tag": "0004_wallets_and_market_data",
+      "breakpoints": true
     }
   ]
 }

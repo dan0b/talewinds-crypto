@@ -27,8 +27,12 @@ Dependencies in parentheses are soft: they help, but aren't required.
 
 | # | Step | Status | Depends on | Delivers |
 |---|---|---|---|---|
-| 01 | [Wallet balances: Ethereum, Robinhood Chain, Solana](briefs/01-wallet-balances.md) | Ready | 00 | Holdings and USD values for every owned wallet, with freshness |
+| 01 | [Wallet balances: Ethereum, Robinhood Chain, Solana](briefs/01-wallet-balances.md) | ✅ Done¹ | 00 | Holdings and USD values for every owned wallet, with freshness |
+| 01a | [Wallets, market data, and price accuracy](briefs/01a-wallets-and-market-data.md) | ✅ Done¹ | 01 | Add and name wallets in the dashboard; holdings by wallet → chain; market cap; on-chain-first prices |
 | 02 | [Venue balances & positions: Hyperliquid, Coinbase](briefs/02-venue-balances.md) | Ready | 01 | All five sources in one total; perp positions |
+
+¹ Robinhood Chain token balances await the Robinhood Chain network being enabled in your Alchemy
+app; see the [01a build log](build-logs/2026-09-29-wallets-and-market-data.md).
 
 ### V0b — Contract address → research report
 
@@ -87,7 +91,7 @@ Build in number order by default. Where dependencies allow, tracks can interleav
 - In V1, the research steps (10–11) can run alongside the ledger steps (06–09).
 - The Jev evaluation harness (part of 25) can be pulled forward as soon as Jev access arrives.
 
-**Next up: 01.**
+**Next up: 02** (needs a view-only Coinbase API key) **or 03** (needs nothing).
 
 ## Vision coverage
 

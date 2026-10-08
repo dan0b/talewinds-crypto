@@ -8,11 +8,12 @@
   },
   "scripts": {
     "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude '**/*.int.test.ts'"
   },
   "dependencies": {
     "@talewinds/core": "workspace:*",
     "@talewinds/db": "workspace:*",
-    "@talewinds/sources": "workspace:*"
+    "@talewinds/sources": "workspace:*",
+    "zod": "4.6.5"
   }
 }

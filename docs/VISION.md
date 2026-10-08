@@ -111,3 +111,6 @@ Structured research → my decision → on-chain activity → portfolio/performa
 | [0011](adr/0011-research-scope.md) | Research scope: low-to-mid caps, insider analysis first |
 | [0012](adr/0012-accounts-entities-ownership.md) | Accounts, entities, and ownership |
 | [0013](adr/0013-chain-agnostic-identity.md) | Chain-agnostic identity (CAIP) |
+| [0014](adr/0014-asset-verification.md) | Asset verification: what counts in totals |
+| [0015](adr/0015-pricing-on-chain-first.md) | Pricing: on-chain markets first, cross-checked |
+| [0016](adr/0016-wallets.md) | Wallets group accounts by address |

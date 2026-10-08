@@ -14,7 +14,10 @@ type AnyJob = JobDefinition<z.ZodType, z.ZodType>;
 export interface Queue {
   start(): Promise<void>;
   stop(): Promise<void>;
-  send<J extends AnyJob>(job: J, input: z.input<J['input']>): Promise<string>;
+  /** Enqueue a job. Returns null when the queue's policy declined a duplicate (already queued). */
+  send<J extends AnyJob>(job: J, input: z.input<J['input']>): Promise<string | null>;
+  /** Run a job on a cron schedule (stored in Postgres; safe with several workers). */
+  schedule<J extends AnyJob>(job: J, cron: string, input: z.input<J['input']>): Promise<void>;
   work<J extends AnyJob>(
     job: J,
     handler: (input: z.infer<J['input']>, jobId: string) => Promise<z.input<J['output']>>,
@@ -30,6 +33,13 @@ export function createQueue(databaseUrl: string, log: Logger): Queue {
   const boss = new PgBoss({ connectionString: databaseUrl, schema: 'pgboss' });
   boss.on('error', (err) => log.error({ err }, 'queue error'));
 
+  const ensured = new Set<string>();
+  const ensureQueue = async (job: AnyJob) => {
+    if (ensured.has(job.name)) return;
+    await boss.createQueue(job.name, { policy: job.policy ?? 'standard' });
+    ensured.add(job.name);
+  };
+
   return {
     async start() {
       await boss.start();
@@ -40,17 +50,20 @@ export function createQueue(databaseUrl: string, log: Logger): Queue {
     },
 
     async send(job, input) {
-      await boss.createQueue(job.name);
-      const id = await boss.send(job.name, job.input.parse(input) as object);
-      if (!id) throw new Error(`Queue refused job ${job.name}`);
-      return id;
+      await ensureQueue(job);
+      return boss.send(job.name, job.input.parse(input) as object);
+    },
+
+    async schedule(job, cron, input) {
+      await ensureQueue(job);
+      await boss.schedule(job.name, cron, job.input.parse(input) as object);
     },
 
     async work<J extends AnyJob>(
       job: J,
       handler: (input: z.infer<J['input']>, jobId: string) => Promise<z.input<J['output']>>,
     ) {
-      await boss.createQueue(job.name);
+      await ensureQueue(job);
       await boss.work<unknown>(job.name, async ([item]) => {
         if (!item) return;
         const input = job.input.parse(item.data) as z.infer<J['input']>;

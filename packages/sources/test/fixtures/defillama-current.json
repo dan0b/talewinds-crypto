@@ -1,0 +1,37 @@
+{
+  "coins": {
+    "coingecko:ethereum": {
+      "price": 2656.9888986473734,
+      "symbol": "ETH",
+      "timestamp": 1790649590,
+      "confidence": 0.99
+    },
+    "coingecko:solana": {
+      "price": 116.77537882975193,
+      "symbol": "SOL",
+      "timestamp": 1790649590,
+      "confidence": 0.99
+    },
+    "ethereum:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
+      "decimals": 18,
+      "symbol": "WETH",
+      "price": 2656.4925814325893,
+      "timestamp": 1790649590,
+      "confidence": 0.99
+    },
+    "robinhood:0x0bd7d308f8e1639fab988df18a8011f41eacad73": {
+      "decimals": 18,
+      "symbol": "WETH",
+      "price": 2655.901840499542,
+      "timestamp": 1790649110,
+      "confidence": 0.99
+    },
+    "solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+      "decimals": 6,
+      "symbol": "usdc",
+      "price": 0.9999176002437291,
+      "timestamp": 1790649590,
+      "confidence": 0.99
+    }
+  }
+}
