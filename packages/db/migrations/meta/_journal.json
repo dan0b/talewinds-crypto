@@ -36,6 +36,13 @@
       "when": 1790654306173,
       "tag": "0004_wallets_and_market_data",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791435548003,
+      "tag": "0005_venue_assets",
+      "breakpoints": true
     }
   ]
 }

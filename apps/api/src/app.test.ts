@@ -12,8 +12,12 @@ const heartbeat = (ageMs: number): HeartbeatRow => ({
 
 const WALLET_ID = '01a0e4bb-6c32-76e6-9590-ce717185caaa';
 
+const noChange = { usd: '0.00', pct: null, coveredValueUsd: '0.00', uncoveredCount: 0 };
+
 const emptyHoldings = {
   asOf: new Date(0).toISOString(),
+  scope: { walletId: null },
+  walletOptions: [],
   totals: {
     valueUsd: '0.00',
     lowConfidenceValueUsd: '0.00',
@@ -22,9 +26,19 @@ const emptyHoldings = {
     disagreementCount: 0,
     illiquidCount: 0,
   },
-  hidden: { count: 0, estimatedValueUsd: '0.00' },
+  hidden: { count: 0, estimatedValueUsd: '0.00', largest: [] },
+  small: { count: 0, valueUsd: '0.00', thresholdUsd: '3' },
+  overview: {
+    totalUsd: '0.00',
+    byAsset: [],
+    byCoin: [],
+    byWallet: [],
+    byChain: [],
+    concentration: { largest: null, top3Share: null },
+    change24h: noChange,
+    unpricedCount: 0,
+  },
   wallets: [],
-  venues: [],
   holdings: [],
   accounts: [],
   quality: { staleAccounts: 0, failedAccounts: 0, partialAccounts: 0, neverSynced: 0 },
@@ -37,7 +51,7 @@ const deps = (overrides: Partial<ApiDeps> = {}): ApiDeps => ({
   getHoldings: async () => emptyHoldings,
   requestSync: async () => ({ queued: true }),
   setAssetStatus: async (id, status) => ({ id, status, statusSource: 'manual' }),
-  describeSources: () => ({ sources: [], venues: { coinbase: false } }),
+  describeSources: () => ({ sources: [], venues: { coinbase: false, hyperliquid: true } }),
   addWallet: async () => ({ walletId: WALLET_ID, created: true, accounts: 2 }),
   renameWallet: async (walletId, name) => ({ walletId, name }),
   ...overrides,
@@ -96,6 +110,34 @@ describe('portfolio routes', () => {
     await app.request('/api/portfolio/holdings');
     expect(seen).toBe(false);
     expect((await app.request('/api/portfolio/holdings?hidden=yes')).status).toBe(400);
+  });
+
+  it('scopes holdings to one wallet', async () => {
+    let seen: string | null | undefined;
+    const app = createApp(
+      deps({
+        getHoldings: async (o) => {
+          seen = o.walletId;
+          if (o.walletId && o.walletId !== WALLET_ID)
+            throw new Error(`Unknown wallet ${o.walletId}`);
+          return { ...emptyHoldings, scope: { walletId: o.walletId } };
+        },
+      }),
+    );
+    const res = await app.request(`/api/portfolio/holdings?wallet=${WALLET_ID}`);
+    expect(res.status).toBe(200);
+    expect(seen).toBe(WALLET_ID);
+    expect(await res.json()).toMatchObject({ scope: { walletId: WALLET_ID } });
+
+    await app.request('/api/portfolio/holdings');
+    expect(seen).toBeNull();
+
+    expect((await app.request('/api/portfolio/holdings?wallet=nope')).status).toBe(400);
+    const missing = await app.request(
+      '/api/portfolio/holdings?wallet=01a0e4bb-6c32-76e6-9590-ce717185cfff',
+    );
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'wallet not found' });
   });
 
   it('accepts a sync request with 202', async () => {

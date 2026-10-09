@@ -1,4 +1,4 @@
-import type { ChainKey } from '@talewinds/core';
+import type { ChainKey, Venue } from '@talewinds/core';
 import { createEvmBalanceSource, type EvmChainKey, type EvmClients } from './chains/evm/index.ts';
 import { createSolanaBalanceSource } from './chains/solana/index.ts';
 import { alchemyUrl, CHAIN_PROVIDERS } from './config.ts';
@@ -6,13 +6,25 @@ import type { SourcesEnv } from './env.ts';
 import { createPriceSource } from './prices/index.ts';
 import { type FetchFn, ProviderClient } from './shared/http.ts';
 import type { Sleep } from './shared/limiter.ts';
-import type { PriceSource, WalletBalanceSource } from './types.ts';
+import type {
+  PriceSource,
+  VenueBalanceSource,
+  VenuePriceSource,
+  WalletBalanceSource,
+} from './types.ts';
+import { coinbaseAuthorizer } from './venues/coinbase/auth.ts';
+import { createCoinbaseBalanceSource } from './venues/coinbase/index.ts';
+import { createCoinbasePriceSource } from './venues/coinbase/prices.ts';
+import { createHyperliquidBalanceSource } from './venues/hyperliquid/index.ts';
+import { createHyperliquidPriceSource } from './venues/hyperliquid/prices.ts';
+import { combineVenuePrices } from './venues/index.ts';
 
 export { SourcesEnv } from './env.ts';
 export { ProviderError } from './shared/errors.ts';
 export type { FetchFn } from './shared/http.ts';
 export { RequestMeter } from './shared/meter.ts';
 export type * from './types.ts';
+export { KeyPermissionError } from './venues/coinbase/index.ts';
 
 /** How each chain is currently being read, for status displays. Contains no secrets. */
 export interface SourceDescription {
@@ -24,9 +36,13 @@ export interface SourceDescription {
 export interface Sources {
   wallets: Record<ChainKey, WalletBalanceSource>;
   prices: PriceSource;
+  /** Readers for venue accounts; null where the venue isn't configured (or built) yet. */
+  venueBalances: Record<Venue, VenueBalanceSource | null>;
+  /** Prices for venue assets, on each venue's own markets (ADR 0018). */
+  venuePrices: VenuePriceSource;
   describe(): SourceDescription[];
-  /** Which venue credentials are configured (venue syncing arrives in step 02). */
-  venues: { coinbase: boolean };
+  /** Which venues can be read (Coinbase needs its key; Hyperliquid is public). No secrets. */
+  venues: { coinbase: boolean; hyperliquid: boolean };
 }
 
 export interface SourcesOptions {
@@ -126,10 +142,38 @@ export function createSources(env: SourcesEnv, options: SourcesOptions = {}): So
     jupiter,
   });
 
+  // Coinbase (ADR 0017): signed with a view-only key, checked before every read. The key is only
+  // parsed when a request is made, so processes that never sync (the API) never load it.
+  const coinbase =
+    env.COINBASE_API_KEY_NAME && env.COINBASE_API_PRIVATE_KEY
+      ? createCoinbaseBalanceSource(
+          new ProviderClient({
+            provider: 'coinbase',
+            baseUrl: 'https://api.coinbase.com',
+            minIntervalMs: 150,
+            redact: secrets,
+            authorize: coinbaseAuthorizer({
+              keyName: env.COINBASE_API_KEY_NAME,
+              privateKeyPem: env.COINBASE_API_PRIVATE_KEY,
+            }),
+            ...options,
+          }),
+        )
+      : null;
+  // Hyperliquid's info API is public: balances by address, prices from its own markets.
+  const hyperliquid = client('hyperliquid', 'https://api.hyperliquid.xyz', 250);
+  // Venue holdings are priced on each venue's own public market data (no key).
+  const venuePrices = combineVenuePrices({
+    coinbase: createCoinbasePriceSource(client('coinbase:market', 'https://api.coinbase.com', 150)),
+    hyperliquid: createHyperliquidPriceSource(hyperliquid),
+  });
+
   return {
     wallets,
     prices,
+    venueBalances: { coinbase, hyperliquid: createHyperliquidBalanceSource(hyperliquid) },
+    venuePrices,
     describe: () => description,
-    venues: { coinbase: Boolean(env.COINBASE_API_KEY_NAME && env.COINBASE_API_PRIVATE_KEY) },
+    venues: { coinbase: coinbase !== null, hyperliquid: true },
   };
 }

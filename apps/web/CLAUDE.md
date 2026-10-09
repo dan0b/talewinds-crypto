@@ -5,8 +5,12 @@ A Vite + React single-page app that talks only to the API.
 
 - `src/router.tsx` — layout, nav, and route tree (TanStack Router, code-based).
 - `src/routes/*.tsx` — one file per page.
-- `src/components/portfolio/` — the Portfolio page's parts: `WalletGroups` (wallet → chain, the
-  default), `HoldingsTable` (by asset), `AddWallet`, shared table `cells`, `AccountsList`.
+- `src/components/portfolio/` — the Portfolio page's parts: `Overview` (stat tiles and the
+  allocation card), `WalletGroups` (wallet → chain, the default), `HoldingsTable` (by asset),
+  `AddWallet`, shared table `cells`, `SyncBadge`. Venue accounts (Coinbase) render as a wallet-style
+  card with one section. The page's scope (all, one wallet, or one venue account) lives in the URL:
+  `/?wallet=<id>`.
+- `src/components/charts/` — charts (`Donut`). Inline SVG, no chart library.
 - `src/lib/api.ts` — the typed API client (`hc<AppType>`). Route paths and response types come from
   `apps/api`, with no hand-written types.
 - `src/components/` — shared UI. `src/styles.css` — Tailwind + design tokens.
@@ -31,6 +35,12 @@ A Vite + React single-page app that talks only to the API.
 - **Make staleness and incompleteness visible.** Show data age, and flag `unclassified`/incomplete
   numbers rather than hiding them ([ADR 0002](../../docs/adr/0002-ledger-truth-and-reconciliation.md)).
 - **Amounts arrive as strings.** Format them for display; never `parseFloat` them for math.
-- Shared UI primitives live in `src/components/ui.tsx` (Badge, Button, Stat, Notice, Card), built
+- **Charts:** turn a share into a number only through `shareFraction` (lib/format), and only for
+  geometry (angles, bar widths). Colors come from the `--color-series-*` variables in `styles.css`,
+  assigned **by rank within each chart** (largest = series 1), at most five plus `series-other`:
+  the palette passes the color-blind checks only as neighbors in that order. Every chart has a
+  table beside it with every value (the legend, and the keyboard/screen-reader view). Follow the
+  `dataviz` skill for anything new.
+- Shared UI primitives live in `src/components/ui.tsx` (Badge, Button, Stat, Notice, Card, Segmented), built
   with plain Tailwind. shadcn/ui ([ADR 0006](../../docs/adr/0006-application-stack.md)) gets added
   when a component needs Radix-level behavior (menus, dialogs, popovers). Step 01 didn't need any.

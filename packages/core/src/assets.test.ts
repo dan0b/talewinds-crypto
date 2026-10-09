@@ -3,10 +3,13 @@ import {
   AssetRef,
   MAX_SYMBOL_LENGTH,
   nativeAssetRef,
+  parseVenueAssetRef,
   sanitizeTokenText,
   tokenAssetRef,
+  venueAssetRef,
 } from './assets.ts';
 import { CHAINS } from './chains.ts';
+import { placeName } from './venues.ts';
 
 describe('asset refs', () => {
   it('builds CAIP-19 native refs from the chain registry', () => {
@@ -55,5 +58,21 @@ describe('sanitizeTokenText', () => {
   it('counts emoji and CJK by code point, not UTF-16 units', () => {
     expect(sanitizeTokenText('币安人生', 24)).toBe('币安人生');
     expect(sanitizeTokenText('🚀'.repeat(30), 24)).toHaveLength(24 * 2 - 1); // 23 rockets (2 units each) + '…'
+  });
+});
+
+describe('venue assets (ADR 0018)', () => {
+  it('scopes a currency code to its venue, and parses it back', () => {
+    const ref = venueAssetRef('coinbase', 'ETH');
+    expect(ref).toBe('venue:coinbase/currency:ETH');
+    expect(parseVenueAssetRef(ref)).toEqual({ venue: 'coinbase', code: 'ETH' });
+    expect(parseVenueAssetRef('eip155:1/slip44:60')).toBeNull();
+    expect(placeName('venue:coinbase')).toBe('Coinbase');
+    expect(placeName(CHAINS.solana.id)).toBe('Solana');
+  });
+
+  it('rejects a code that cannot form a valid ID', () => {
+    expect(() => venueAssetRef('coinbase', 'ETH/USD')).toThrow();
+    expect(() => venueAssetRef('coinbase', '')).toThrow();
   });
 });

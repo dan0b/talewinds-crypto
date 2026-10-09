@@ -6,6 +6,7 @@ import type {
   Note,
   PriceConfidence,
   RawAmount,
+  Venue,
 } from '@talewinds/core';
 import type { RequestMeter } from './shared/meter.ts';
 
@@ -60,6 +61,29 @@ export interface BalanceContext {
 export interface WalletBalanceSource {
   readonly chainKey: ChainKey;
   fetchBalances(address: string, ctx: BalanceContext): Promise<BalanceReading>;
+}
+
+/** Which venue account to read: Hyperliquid accounts are keyed by address; Coinbase by its key. */
+export interface VenueAccount {
+  address: string | null;
+}
+
+/** Reads every balance in one venue account (ADR 0018). */
+export interface VenueBalanceSource {
+  readonly venue: Venue;
+  fetchBalances(account: VenueAccount, ctx: BalanceContext): Promise<BalanceReading>;
+}
+
+/** A venue asset to price on its venue's own market. */
+export interface VenuePricingInput {
+  ref: AssetRef;
+  venue: Venue;
+  /** The venue's currency code, e.g. `ETH`. */
+  code: string;
+}
+
+export interface VenuePriceSource {
+  fetchPrices(inputs: VenuePricingInput[], ctx: { meter: RequestMeter }): Promise<PriceReading>;
 }
 
 export interface PricingInput {

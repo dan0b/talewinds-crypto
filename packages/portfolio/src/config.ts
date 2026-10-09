@@ -1,4 +1,4 @@
-/** Timing rules for portfolio data. */
+/** Timing and display rules for portfolio data. */
 export interface PortfolioConfig {
   /** How often balances and prices sync. */
   syncIntervalMinutes: number;
@@ -13,11 +13,21 @@ export interface PortfolioConfig {
    * it would move the price a lot, so its value is probably not realizable.
    */
   illiquidShareOfPool: number;
+  /**
+   * Verified, priced holdings worth less than this (USD, a decimal string) fold into one
+   * "Small balances" line. Display only: they still count in every total.
+   */
+  smallBalanceUsd: string;
+  /** How far a 24h baseline price may sit from the 24-hour mark and still be used. */
+  baselineToleranceMs: number;
 }
 
 const MINUTE = 60_000;
 
-export function portfolioConfig(syncIntervalMinutes = 15): PortfolioConfig {
+export function portfolioConfig(
+  syncIntervalMinutes = 15,
+  options: { smallBalanceUsd?: string } = {},
+): PortfolioConfig {
   return {
     syncIntervalMinutes,
     // Two missed syncs in a row before we call balances stale.
@@ -25,6 +35,8 @@ export function portfolioConfig(syncIntervalMinutes = 15): PortfolioConfig {
     priceStaleAfterMs: 60 * MINUTE,
     priceMissCooldownMs: 24 * 60 * MINUTE,
     illiquidShareOfPool: 0.1,
+    smallBalanceUsd: options.smallBalanceUsd ?? '3',
+    baselineToleranceMs: 90 * MINUTE,
   };
 }
 

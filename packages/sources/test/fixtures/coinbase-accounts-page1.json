@@ -1,0 +1,59 @@
+{
+  "accounts": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "name": "ETH Wallet",
+      "currency": "ETH",
+      "available_balance": { "value": "0.5", "currency": "ETH" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_CRYPTO",
+      "ready": true,
+      "hold": { "value": "0.25", "currency": "ETH" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000002",
+      "name": "Cash (USD)",
+      "currency": "USD",
+      "available_balance": { "value": "120.5", "currency": "USD" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_FIAT",
+      "ready": true,
+      "hold": { "value": "0", "currency": "USD" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000003",
+      "name": "USDC Wallet",
+      "currency": "USDC",
+      "available_balance": { "value": "1000", "currency": "USDC" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_CRYPTO",
+      "ready": true,
+      "hold": { "value": "0", "currency": "USDC" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000004",
+      "name": "BTC Wallet",
+      "currency": "BTC",
+      "available_balance": { "value": "0", "currency": "BTC" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_CRYPTO",
+      "ready": true,
+      "hold": { "value": "0", "currency": "BTC" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    }
+  ],
+  "has_next": true,
+  "cursor": "page-2-cursor",
+  "size": 4
+}

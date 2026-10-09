@@ -25,6 +25,14 @@ meanings. When a new term is introduced, add it here.
   Hyperliquid).
 - **Chain family** — chains sharing an address format and adapter: `evm` (Ethereum, Robinhood
   Chain) and `solana`.
+- **Venue asset** — a holding at a venue, identified within that venue only:
+  `venue:coinbase/currency:ETH` (asset kind `venue`). See [ADR 0018](adr/0018-venue-assets.md).
+- **View-only key** — a venue API key that can read but not trade or transfer. It's the one key
+  allowed outside execution, and every sync checks its permissions first. See
+  [ADR 0017](adr/0017-view-only-venue-keys.md).
+- **Underlying** — the coin an asset gives exposure to (`eth`, `btc`, `sol`, `usdc`), from a
+  hand-curated registry. Its **form** says how it's held: native, wrapped, staked, restaked, or at a
+  venue. Unknown assets are their own underlying. See [ADR 0019](adr/0019-underlying-grouping.md).
 - **CAIP-2 / CAIP-10 / CAIP-19** — standard IDs for chains, accounts, and assets.
 
 ## Ledger
@@ -63,6 +71,16 @@ meanings. When a new term is introduced, add it here.
   probably can't be realized at that price.
 - **Stale** — balances or prices older than their threshold (by default: balances after two missed
   syncs, prices after an hour). Stale data is shown, flagged, never hidden.
+- **Small balance** — a verified, priced holding worth less than the small-balance threshold ($3 by
+  default). Folded into one line in lists, and still counted in every total.
+- **Scope** — what the portfolio page shows: all wallets, or one wallet. Totals, notices, the
+  overview, and lists all follow it.
+- **Allocation** — each coin's (every form of it, wherever it's held), wallet's, or chain's or
+  venue's share of the scope's priced total.
+- **Concentration** — the share of the total in the largest coin, and in the top three.
+- **24h change** — how current holdings moved in value over 24 hours: the price now against the
+  **baseline price**, our own recorded price from the same source about 24 hours earlier. A price
+  move, not P&L: deposits, withdrawals, and trades don't count.
 - **Note** — a machine-readable remark on a result (`code` + `message`): something skipped,
   missing, or approximate. Surfaced to the user rather than dropped.
 - **Raw amount** — an integer quantity in a token's smallest unit (wei, lamports). Always `bigint`.

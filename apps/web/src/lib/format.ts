@@ -69,3 +69,42 @@ export function formatCompactUsd(value: string): string {
   }
   return formatUsd(value);
 }
+
+/** A share of a total: "0.421215" → "42.1%". Tiny non-zero shares show as "<0.1%". */
+export function formatShare(share: string): string {
+  const pct = new Dec(share).times(100);
+  if (pct.isZero()) return '0%';
+  if (pct.abs().lt(0.1)) return '<0.1%';
+  return `${pct.toFixed(1)}%`;
+}
+
+/** A signed fractional change: "-0.019507" → "−1.95%", "0.25" → "+25.00%". */
+export function formatChangePct(pct: string): string {
+  const d = new Dec(pct).times(100);
+  const [int = '0', frac = '00'] = d.abs().toFixed(2).split('.');
+  if (int === '0' && frac === '00') return '0.00%';
+  return `${d.isNegative() ? '−' : '+'}${group(int)}.${frac}%`;
+}
+
+/** A signed USD change: "+$12.34", "−$31.28"; a change that rounds to zero is "$0.00". */
+export function formatChangeUsd(value: string): string {
+  const d = new Dec(value);
+  const cents = d.abs().toFixed(2);
+  if (cents === '0.00') return '$0.00';
+  return `${d.isNegative() ? '−' : '+'}${formatUsd(cents)}`;
+}
+
+/** Which way a signed decimal points, at the precision it's displayed with. */
+export function direction(value: string, decimals = 2): 'up' | 'down' | 'flat' {
+  const d = new Dec(value);
+  if (d.abs().toFixed(decimals) === new Dec(0).toFixed(decimals)) return 'flat';
+  return d.isNegative() ? 'down' : 'up';
+}
+
+/**
+ * A share as a plain number between 0 and 1, **for chart geometry only** (SVG angles and bar
+ * widths). Never use it for money: values and shares stay decimal strings everywhere else.
+ */
+export function shareFraction(share: string): number {
+  return Math.min(1, Math.max(0, Number(new Dec(share).toFixed(6))));
+}

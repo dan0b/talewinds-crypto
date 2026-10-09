@@ -1,5 +1,5 @@
 import type { PriceConfidence } from '@talewinds/core';
-import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Executor } from '../client.ts';
 import {
   accounts,
@@ -246,6 +246,51 @@ export async function latestPrices(
     for (const r of rows) out.set(r.assetId, r);
   }
   return out;
+}
+
+export type PriceObservationPoint = {
+  assetId: string;
+  priceUsd: string;
+  source: string;
+  pricedAt: Date;
+};
+
+/** Every price observed for these assets with `pricedAt` in [from, to] (e.g. 24h baselines). */
+export async function priceObservationsBetween(
+  db: Executor,
+  assetIds: string[],
+  from: Date,
+  to: Date,
+): Promise<PriceObservationPoint[]> {
+  const out: PriceObservationPoint[] = [];
+  for (const batch of chunk(assetIds, 1000)) {
+    const rows = await db
+      .select({
+        assetId: priceObservations.assetId,
+        priceUsd: priceObservations.priceUsd,
+        source: priceObservations.source,
+        pricedAt: priceObservations.pricedAt,
+      })
+      .from(priceObservations)
+      .where(
+        and(
+          inArray(priceObservations.assetId, batch),
+          gte(priceObservations.pricedAt, from),
+          lte(priceObservations.pricedAt, to),
+        ),
+      );
+    out.push(...rows);
+  }
+  return out;
+}
+
+/** Owned venue accounts (Coinbase, Hyperliquid), read through their venue's API (step 02). */
+export async function ownedVenueAccounts(db: Executor) {
+  return db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.ownership, 'owned'), eq(accounts.kind, 'venue')))
+    .orderBy(accounts.createdAt);
 }
 
 /** Owned wallet accounts (the ones step 01 syncs). */

@@ -56,7 +56,9 @@ Carried forward from the original brief, revised where decisions changed them:
 
 - **The core never holds keys.** Research, portfolio, and AI code is read-only by construction.
   Execution is isolated, signs only from capped hot wallets, and only after hard-limit checks. Main
-  wallets are watch-only. ([0001](adr/0001-execution-boundary.md))
+  wallets are watch-only. ([0001](adr/0001-execution-boundary.md)) The one exception: view-only
+  venue API keys, whose permissions are checked before every sync
+  ([0017](adr/0017-view-only-venue-keys.md)).
 - **Rules before recommendations.** AI gathers and synthesizes; explicit, versioned strategy rules
   govern scoring and sizing. Until the strategy document exists, nothing presents provisional
   scores or sizing as settled policy.
@@ -89,7 +91,8 @@ Structured research → my decision → on-chain activity → portfolio/performa
 - **Cost-basis method** (FIFO / HIFO / specific ID) and **history depth** — V1.
 - **Authentication** — required before the API/dashboard is reachable beyond localhost.
 - **Execution hard-limit storage** — must not be writable by the running app. Priority 2.
-- **Venue asset identity** (Coinbase, Hyperliquid perps) — V0a.
+- ~~**Venue asset identity** (Coinbase, Hyperliquid perps) — V0a.~~ Decided in
+  [0018](adr/0018-venue-assets.md) and [0019](adr/0019-underlying-grouping.md).
 - **The strategy document** — capital buckets, sizing, research checklist, scoring thresholds. Will
   be stored as versioned data ([0007](adr/0007-postgres-single-source-of-truth.md)).
 - **Tax accounting** — out of scope for early versions.
@@ -114,3 +117,6 @@ Structured research → my decision → on-chain activity → portfolio/performa
 | [0014](adr/0014-asset-verification.md) | Asset verification: what counts in totals |
 | [0015](adr/0015-pricing-on-chain-first.md) | Pricing: on-chain markets first, cross-checked |
 | [0016](adr/0016-wallets.md) | Wallets group accounts by address |
+| [0017](adr/0017-view-only-venue-keys.md) | View-only venue keys may be used outside execution, checked before every sync |
+| [0018](adr/0018-venue-assets.md) | Venue assets: venue-scoped identity, exact amounts, venue prices |
+| [0019](adr/0019-underlying-grouping.md) | Underlying grouping: a hand-curated registry; wrapped and staked count toward their coin |

@@ -1,0 +1,38 @@
+{
+  "products": [
+    {
+      "product_id": "BTC-USD",
+      "price": "82655.05",
+      "price_percentage_change_24h": "-1.72050543845374",
+      "volume_24h": "7173.34663481",
+      "status": "online",
+      "trading_disabled": false,
+      "base_currency_id": "BTC",
+      "quote_currency_id": "USD",
+      "product_type": "SPOT"
+    },
+    {
+      "product_id": "ETH-USD",
+      "price": "2562.5",
+      "price_percentage_change_24h": "-1.85188731639121",
+      "volume_24h": "166286.61340914",
+      "status": "online",
+      "trading_disabled": false,
+      "base_currency_id": "ETH",
+      "quote_currency_id": "USD",
+      "product_type": "SPOT"
+    },
+    {
+      "product_id": "SOL-USD",
+      "price": "115.14",
+      "price_percentage_change_24h": "-2.63825469304921",
+      "volume_24h": "557146.1689631",
+      "status": "online",
+      "trading_disabled": false,
+      "base_currency_id": "SOL",
+      "quote_currency_id": "USD",
+      "product_type": "SPOT"
+    }
+  ],
+  "num_products": 3
+}

@@ -6,7 +6,7 @@ import {
   refreshPrices,
   setAssetStatus,
   syncAccountBalances,
-  syncAllOwnedWallets,
+  syncAllOwnedAccounts,
 } from '@talewinds/portfolio';
 import type { Command } from 'commander';
 import { withRuntime } from '../context.ts';
@@ -35,7 +35,9 @@ function printSyncResults(results: AccountSyncResult[]): void {
 export function registerPortfolioCommands(program: Command): void {
   program
     .command('sync')
-    .description('Sync balances for owned wallets now (in this process), then refresh prices')
+    .description(
+      'Sync balances for owned wallets and venues now (in this process), then refresh prices',
+    )
     .option('--account <ref>', 'only this account (see `tw account list` for refs)')
     .action(
       withRuntime(async (rt, opts: { account?: string }) => {
@@ -50,7 +52,7 @@ export function registerPortfolioCommands(program: Command): void {
           );
           return;
         }
-        const result = await syncAllOwnedWallets(deps);
+        const result = await syncAllOwnedAccounts(deps);
         printSyncResults(result.accounts);
         console.log(
           result.priceError
@@ -67,7 +69,10 @@ export function registerPortfolioCommands(program: Command): void {
     .action(
       withRuntime(async (rt, opts: { all?: boolean }) => {
         const deps = createPortfolioDeps({ db: rt.database.db, env: rt.env, log: rt.log });
-        const view = await getHoldings(deps, { includeHidden: Boolean(opts.all) });
+        const view = await getHoldings(
+          { ...deps, venues: deps.sources.venues },
+          { includeHidden: Boolean(opts.all) },
+        );
         if (view.holdings.length === 0) {
           console.log('No holdings yet. Register wallets (`tw account add`) and run `tw sync`.');
         } else {

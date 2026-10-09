@@ -37,8 +37,19 @@ function Layout() {
 
 const rootRoute = createRootRoute({ component: Layout });
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The portfolio's scope lives in the URL (`/?wallet=<id>`), so a reload or a link keeps it. */
+const portfolioSearch = (search: Record<string, unknown>): { wallet?: string } =>
+  typeof search.wallet === 'string' && UUID.test(search.wallet) ? { wallet: search.wallet } : {};
+
 const routeTree = rootRoute.addChildren([
-  createRoute({ getParentRoute: () => rootRoute, path: '/', component: PortfolioPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: PortfolioPage,
+    validateSearch: portfolioSearch,
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: '/research', component: ResearchPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/system', component: SystemPage }),
 ]);

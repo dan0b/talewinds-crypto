@@ -7,8 +7,9 @@ queue stored in Postgres (pg-boss), so the API and CLI enqueue work and this pro
   (the dashboard's "worker alive" signal), prunes heartbeats older than a day.
 - `src/context.ts` — `WorkerContext`, what every handler receives.
 - `src/handlers/*.ts` — one file per area; each exports a `register…Handlers(context)` function.
-  `portfolio.ts` runs `portfolio.syncAll` (every owned wallet, then prices) on a cron schedule,
-  every `PORTFOLIO_SYNC_MINUTES`.
+  `portfolio.ts` runs `portfolio.syncAll` (every owned wallet, then every owned venue account that's
+  set up, e.g. Coinbase once its key is in env, then prices) on a cron schedule, every
+  `PORTFOLIO_SYNC_MINUTES`.
 - On startup, sync runs left `running` by a crashed process (older than 30 minutes) are marked
   failed.
 

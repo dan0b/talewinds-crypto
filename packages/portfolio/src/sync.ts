@@ -1,16 +1,22 @@
-import { findChainById, isChainKey, type Note } from '@talewinds/core';
+import { findChainById, isChainKey, type Note, VENUE_INFO, Venue } from '@talewinds/core';
 import {
   type AccountRow,
   finishSyncRun,
   insertBalanceSnapshots,
   knownAssetDecimals,
+  ownedVenueAccounts,
   ownedWalletAccounts,
   promoteToVerified,
   saveRawRecords,
   startSyncRun,
   upsertAssets,
 } from '@talewinds/db';
-import { type ObservedBalance, RequestMeter } from '@talewinds/sources';
+import {
+  type BalanceContext,
+  type BalanceReading,
+  type ObservedBalance,
+  RequestMeter,
+} from '@talewinds/sources';
 import { errorMessage, nowOf, type PortfolioDeps } from './deps.ts';
 import { refreshPrices } from './prices.ts';
 
@@ -24,10 +30,58 @@ export interface AccountSyncResult {
   error: string | null;
 }
 
+/** The configured reader for a venue account, or null (unknown venue, or no key set). */
+function venueSource(deps: PortfolioDeps, account: AccountRow) {
+  const venue = Venue.safeParse(account.venue);
+  return venue.success
+    ? { venue: venue.data, source: deps.sources.venueBalances[venue.data] }
+    : null;
+}
+
+/** Whether this account can be synced now: every wallet; a venue once its source is configured. */
+export function canSync(deps: PortfolioDeps, account: AccountRow): boolean {
+  if (account.kind === 'wallet') return true;
+  return Boolean(venueSource(deps, account)?.source);
+}
+
+/** Read one account: a wallet through its chain's adapter, a venue through its own API. */
+async function readBalances(
+  deps: PortfolioDeps,
+  account: AccountRow,
+  meter: RequestMeter,
+): Promise<BalanceReading> {
+  const lookup =
+    (known: Map<string, number>): BalanceContext['known'] =>
+    (ref) => {
+      const decimals = known.get(ref);
+      return decimals === undefined ? undefined : { decimals };
+    };
+
+  if (account.kind === 'wallet') {
+    const chain = account.chainId ? findChainById(account.chainId) : undefined;
+    if (!account.address || !chain || !isChainKey(chain.key)) {
+      throw new Error(`Account ${account.ref} is not a wallet on a supported chain`);
+    }
+    const known = await knownAssetDecimals(deps.db, chain.id);
+    return deps.sources.wallets[chain.key].fetchBalances(account.address, {
+      meter,
+      known: lookup(known),
+    });
+  }
+
+  const venue = venueSource(deps, account);
+  if (!venue?.source) {
+    throw new Error(`Syncing ${account.ref} isn't set up (no reader or credentials for it)`);
+  }
+  const known = await knownAssetDecimals(deps.db, VENUE_INFO[venue.venue].chainId);
+  return venue.source.fetchBalances({ address: account.address }, { meter, known: lookup(known) });
+}
+
 /**
- * Read one wallet's balances and store them as a sync run: raw responses first, then assets and
- * snapshots that link back to them, all in one transaction. Never throws for provider problems:
- * a failure is recorded as a failed run and returned.
+ * Read one account's balances (a wallet on one chain, or a venue account) and store them as a
+ * sync run: raw responses first, then assets and snapshots that link back to them, all in one
+ * transaction. Never throws for provider problems: a failure is recorded as a failed run and
+ * returned.
  */
 export async function syncAccountBalances(
   deps: PortfolioDeps,
@@ -39,19 +93,7 @@ export async function syncAccountBalances(
   const base = { accountId: account.id, ref: account.ref };
 
   try {
-    const chain = account.chainId ? findChainById(account.chainId) : undefined;
-    if (account.kind !== 'wallet' || !account.address || !chain || !isChainKey(chain.key)) {
-      throw new Error(`Account ${account.ref} is not a wallet on a supported chain`);
-    }
-
-    const known = await knownAssetDecimals(db, chain.id);
-    const reading = await deps.sources.wallets[chain.key].fetchBalances(account.address, {
-      meter,
-      known: (ref) => {
-        const decimals = known.get(ref);
-        return decimals === undefined ? undefined : { decimals };
-      },
-    });
+    const reading = await readBalances(deps, account, meter);
 
     // A provider listing the same asset twice would double-count it; keep the first.
     const notes = [...reading.notes];
@@ -152,9 +194,16 @@ export interface SyncAllResult {
   priceError: string | null;
 }
 
-/** Sync every owned wallet, one at a time (free-tier friendly), then refresh prices. */
-export async function syncAllOwnedWallets(deps: PortfolioDeps): Promise<SyncAllResult> {
-  const accounts = await ownedWalletAccounts(deps.db);
+/**
+ * Sync every owned wallet, then every owned venue account that's set up (e.g. Coinbase once its
+ * key is in env), one at a time (free-tier friendly), then refresh prices.
+ */
+export async function syncAllOwnedAccounts(deps: PortfolioDeps): Promise<SyncAllResult> {
+  const [wallets, venues] = await Promise.all([
+    ownedWalletAccounts(deps.db),
+    ownedVenueAccounts(deps.db),
+  ]);
+  const accounts = [...wallets, ...venues.filter((a) => canSync(deps, a))];
   const results: AccountSyncResult[] = [];
   for (const account of accounts) {
     results.push(await syncAccountBalances(deps, account));

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  direction,
   formatAmount,
+  formatChangePct,
+  formatChangeUsd,
   formatCompactUsd,
   formatPrice,
+  formatShare,
   formatUsd,
+  shareFraction,
   shortAddress,
   timeAgo,
 } from './format.ts';
@@ -37,5 +42,30 @@ describe('display formatting', () => {
     expect(timeAgo('2026-09-28T11:58:00Z', now)).toBe('2m ago');
     expect(timeAgo(null, now)).toBe('never');
     expect(shortAddress('0x0bd7d308f8e1639fab988df18a8011f41eacad73')).toBe('0x0bd7…ad73');
+  });
+
+  it('formats shares of a total', () => {
+    expect(formatShare('0.421215')).toBe('42.1%');
+    expect(formatShare('1')).toBe('100.0%');
+    expect(formatShare('0.000410')).toBe('<0.1%');
+    expect(formatShare('0')).toBe('0%');
+  });
+
+  it('formats signed changes, never as a negative zero', () => {
+    expect(formatChangePct('-0.019507')).toBe('−1.95%');
+    expect(formatChangePct('0.25')).toBe('+25.00%');
+    expect(formatChangePct('12.5')).toBe('+1,250.00%');
+    expect(formatChangePct('-0.00001')).toBe('0.00%');
+    expect(formatChangeUsd('-31.28')).toBe('−$31.28');
+    expect(formatChangeUsd('1234.5')).toBe('+$1,234.50');
+    expect(formatChangeUsd('-0.004')).toBe('$0.00');
+    expect(direction('-31.28')).toBe('down');
+    expect(direction('0.001')).toBe('flat');
+    expect(direction('0.000123', 6)).toBe('up');
+  });
+
+  it('turns shares into bounded fractions for chart geometry', () => {
+    expect(shareFraction('0.421215')).toBeCloseTo(0.421215);
+    expect(shareFraction('1.000001')).toBe(1);
   });
 });

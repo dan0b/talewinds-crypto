@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Holding, okJson } from '../../lib/api.ts';
+import { api, type Holding, type HoldingsView, okJson } from '../../lib/api.ts';
 import {
+  direction,
+  formatChangePct,
+  formatChangeUsd,
   formatCompactUsd,
   formatPrice,
   formatUsd,
@@ -26,7 +29,115 @@ export type Priced = Pick<
   | 'illiquid'
   | 'amount'
   | 'ref'
+  | 'small'
+  | 'change24h'
 >;
+
+type ChangeSummary = HoldingsView['overview']['change24h'];
+
+const NO_BASELINE = 'No price from 24 hours ago yet (new holding, or no sync then)';
+
+/** A signed % change with an arrow, so direction never relies on color alone. */
+export function ChangePct({ pct, title }: { pct: string; title?: string }) {
+  // Fractions shown as % with 2 decimals: compare at 4 decimal places.
+  const dir = direction(pct, 4);
+  const tone = dir === 'up' ? 'text-ok' : dir === 'down' ? 'text-bad' : 'text-muted';
+  return (
+    <span className={`whitespace-nowrap tabular-nums ${tone}`} title={title}>
+      {dir !== 'flat' && (
+        <span aria-hidden className="mr-0.5 text-[9px]">
+          {dir === 'up' ? '▲' : '▼'}
+        </span>
+      )}
+      {formatChangePct(pct)}
+    </span>
+  );
+}
+
+/** One holding's 24h price move. */
+export function ChangeCell({ asset }: { asset: Priced }) {
+  const c = asset.change24h;
+  if (!c) {
+    return (
+      <span className="text-muted" title={NO_BASELINE}>
+        —
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <ChangePct
+        pct={c.pct}
+        title={`From ${formatPrice(c.baselineUsd)} (${timeAgo(c.baselineAt)}, same source)`}
+      />
+      <span className="text-[11px] text-muted tabular-nums">{formatChangeUsd(c.usd)}</span>
+    </div>
+  );
+}
+
+/** A 24h move summed over several holdings, saying when it covers only some of them. */
+export function ChangeSummaryCell({ change }: { change: ChangeSummary }) {
+  if (change.pct === null) {
+    return (
+      <span className="text-muted" title={NO_BASELINE}>
+        —
+      </span>
+    );
+  }
+  const partial = change.uncoveredCount > 0;
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <ChangePct pct={change.pct} />
+      <span
+        className="text-[11px] text-muted tabular-nums"
+        title={
+          partial
+            ? `Covers ${formatUsd(change.coveredValueUsd)} of value. ${change.uncoveredCount} ${change.uncoveredCount === 1 ? 'holding has' : 'holdings have'} no price from 24 hours ago yet.`
+            : undefined
+        }
+      >
+        {formatChangeUsd(change.usd)}
+        {partial && ' · partial'}
+      </span>
+    </div>
+  );
+}
+
+/** The folded line standing in for holdings under the small-balance threshold. */
+export function SmallBalancesRow({
+  count,
+  valueUsd,
+  thresholdUsd,
+  open,
+  onToggle,
+  colSpan,
+}: {
+  count: number;
+  valueUsd: string;
+  thresholdUsd: string;
+  open: boolean;
+  onToggle: () => void;
+  colSpan: number;
+}) {
+  return (
+    <tr className="border-t border-border/60">
+      <td colSpan={colSpan} className="py-2">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onToggle}
+          className="flex w-full items-center justify-between gap-3 text-xs text-muted hover:text-fg"
+        >
+          <span>
+            {open ? '▾' : '▸'} Small balances ({count}) · each under {formatUsd(thresholdUsd)},
+            still counted in totals
+          </span>
+          <span className="pr-3 tabular-nums">{formatUsd(valueUsd)}</span>
+        </button>
+      </td>
+    </tr>
+  );
+}
 
 export function AssetCell({ asset, showChain = true }: { asset: Priced; showChain?: boolean }) {
   return (

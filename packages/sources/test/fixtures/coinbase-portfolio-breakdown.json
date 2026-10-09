@@ -1,0 +1,33 @@
+{
+  "breakdown": {
+    "portfolio": {
+      "name": "Default",
+      "uuid": "00000000-0000-4000-8000-0000000000aa",
+      "type": "DEFAULT",
+      "deleted": false
+    },
+    "portfolio_balances": {
+      "total_balance": { "value": "3245.66", "currency": "USD" }
+    },
+    "spot_positions": [
+      {
+        "asset": "ETH",
+        "account_uuid": "00000000-0000-4000-8000-000000000001",
+        "total_balance_fiat": 2196.14,
+        "total_balance_crypto": 0.85,
+        "account_type": "ACCOUNT_TYPE_CRYPTO",
+        "is_cash": false
+      },
+      {
+        "asset": "SOL",
+        "account_uuid": "00000000-0000-4000-8000-000000000008",
+        "total_balance_fiat": 57.48,
+        "total_balance_crypto": 0.5,
+        "account_type": "ACCOUNT_TYPE_STAKED_FUNDS",
+        "is_cash": false
+      }
+    ],
+    "perp_positions": [],
+    "futures_positions": []
+  }
+}

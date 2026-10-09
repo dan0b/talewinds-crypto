@@ -4,7 +4,13 @@ The shared domain vocabulary as code: types, identity, validation schemas, and p
 Everything else depends on it, including the browser dashboard.
 
 - `chains.ts` — supported chains (CAIP-2 IDs, families, native asset). **Add a chain here first.**
-- `venues.ts` — supported venues (Coinbase, Hyperliquid).
+- `venues.ts` — supported venues (Coinbase, Hyperliquid), `VENUE_INFO` (name, `venue:<name>` scope
+  ID), and `placeName` (a chain's or venue's display name).
+- `assets.ts` — asset identity (CAIP-19 refs, plus venue assets `venue:coinbase/currency:ETH`,
+  [ADR 0018](../../docs/adr/0018-venue-assets.md)), statuses, and token-text sanitizing.
+- `underlyings.ts` — the hand-curated coin registry (`underlyingOf`): which coin an asset counts
+  toward, and in what form ([ADR 0019](../../docs/adr/0019-underlying-grouping.md)). Every token
+  entry cites how its contract was verified; unlisted assets are their own coin.
 - `addresses.ts` — address validation and normalization per chain family.
 - `accounts.ts` — ownership, account kinds, entity kinds, `NewAccountInput`, `normalizeAccount` (refs).
 - `amounts.ts` — `RawAmount` (`bigint`), `Dec` (decimal), formatting/parsing, `toJson`.

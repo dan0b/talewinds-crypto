@@ -15,7 +15,8 @@ export interface ApiDeps {
   pingDatabase(): Promise<number>;
   latestHeartbeat(): Promise<HeartbeatRow | null>;
   listAccounts(): Promise<AccountRow[]>;
-  getHoldings(options: { includeHidden: boolean }): Promise<HoldingsView>;
+  /** Holdings for all wallets, or one (`walletId`). Throws `Unknown wallet …` if it doesn't exist. */
+  getHoldings(options: { includeHidden: boolean; walletId: string | null }): Promise<HoldingsView>;
   /** Enqueue a portfolio sync. `queued: false` means one is already waiting. */
   requestSync(): Promise<{ queued: boolean }>;
   setAssetStatus(
@@ -24,7 +25,10 @@ export interface ApiDeps {
     reason: string | null,
   ): Promise<{ id: string; status: string; statusSource: string }>;
   /** How each chain is being read, and which venue keys are set (no secrets). */
-  describeSources(): { sources: SourceDescription[]; venues: { coinbase: boolean } };
+  describeSources(): {
+    sources: SourceDescription[];
+    venues: { coinbase: boolean; hyperliquid: boolean };
+  };
   /** Add a wallet (idempotent) and queue a sync so its balances appear. */
   addWallet(
     input: z.infer<typeof WalletBody>,
@@ -58,7 +62,11 @@ const StatusBody = z.object({
   reason: z.string().max(500).nullable().optional(),
 });
 
-const HoldingsQuery = z.object({ hidden: z.enum(['0', '1']).optional() });
+const HoldingsQuery = z.object({
+  hidden: z.enum(['0', '1']).optional(),
+  /** Scope the view to one wallet. */
+  wallet: z.uuid().optional(),
+});
 
 const WalletBody = z.object({
   address: z.string().trim().min(1).max(100),
@@ -110,8 +118,17 @@ export function createApp(deps: ApiDeps) {
     })
     .get('/system/sources', (c) => c.json(deps.describeSources(), 200))
     .get('/portfolio/holdings', valid('query', HoldingsQuery), async (c) => {
-      const { hidden } = c.req.valid('query');
-      return c.json(await deps.getHoldings({ includeHidden: hidden === '1' }), 200);
+      const { hidden, wallet } = c.req.valid('query');
+      try {
+        return c.json(
+          await deps.getHoldings({ includeHidden: hidden === '1', walletId: wallet ?? null }),
+          200,
+        );
+      } catch (err) {
+        if (errorMessage(err).startsWith('Unknown wallet'))
+          return c.json({ error: 'wallet not found' }, 404);
+        throw err;
+      }
     })
     .post('/portfolio/sync', async (c) => {
       const { queued } = await deps.requestSync();

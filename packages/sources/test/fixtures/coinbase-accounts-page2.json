@@ -1,0 +1,46 @@
+{
+  "accounts": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000005",
+      "name": "ETH Vault",
+      "currency": "ETH",
+      "available_balance": { "value": "0.1", "currency": "ETH" },
+      "default": false,
+      "active": true,
+      "type": "ACCOUNT_TYPE_VAULT",
+      "ready": true,
+      "hold": { "value": "0", "currency": "ETH" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000006",
+      "name": "SOL Wallet",
+      "currency": "SOL",
+      "available_balance": { "value": "2.123456789012345678", "currency": "SOL" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_CRYPTO",
+      "ready": true,
+      "hold": { "value": "0", "currency": "SOL" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000007",
+      "name": "Precise Wallet",
+      "currency": "XYZ",
+      "available_balance": { "value": "0.0000000000000000001", "currency": "XYZ" },
+      "default": true,
+      "active": true,
+      "type": "ACCOUNT_TYPE_CRYPTO",
+      "ready": true,
+      "hold": { "value": "0", "currency": "XYZ" },
+      "retail_portfolio_id": "00000000-0000-4000-8000-0000000000aa",
+      "platform": "ACCOUNT_PLATFORM_CONSUMER"
+    }
+  ],
+  "has_next": false,
+  "cursor": "",
+  "size": 3
+}

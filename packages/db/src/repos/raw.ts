@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import type { Executor } from '../client.ts';
 import { rawRecords } from '../schema/index.ts';
 import { chunk } from '../util.ts';
@@ -63,7 +63,9 @@ export async function saveRawRecords(db: Executor, captures: RawCaptureInput[]):
       requestKey: c.requestKey,
       contentHash,
       dedupeKey: dedupeKeyOf(c.provider, c.requestKey, contentHash),
-      payload: storable(c.payload),
+      // A bare JSON `null` is a real answer (e.g. "no sub-accounts"): store it as the JSON value
+      // null, which is what was received, not as a missing (SQL NULL) payload.
+      payload: c.payload === null ? sql`'null'::jsonb` : storable(c.payload),
       firstFetchedAt: c.fetchedAt,
     };
   });

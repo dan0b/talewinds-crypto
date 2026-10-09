@@ -16,6 +16,22 @@ const capture = (requestKey: string, payload: unknown) => ({
 });
 
 describe('saveRawRecords', () => {
+  it('stores a bare JSON null response as JSON null (Hyperliquid answers "no sub-accounts" so)', async () => {
+    const [id, again] = await saveRawRecords(db, [
+      capture('subAccounts(0xabc)', null),
+      capture('subAccounts(0xabc)', null),
+    ]);
+    expect(again).toBe(id);
+    const [row] = await db
+      .select({
+        payload: rawRecords.payload,
+        type: sql<string>`jsonb_typeof(${rawRecords.payload})`,
+      })
+      .from(rawRecords)
+      .where(eq(rawRecords.id, id as string));
+    expect(row).toEqual({ payload: null, type: 'null' });
+  });
+
   it('stores identical responses once and returns ids in input order', async () => {
     const [a, b, c] = await saveRawRecords(db, [
       capture('GET /x', { v: 1 }),

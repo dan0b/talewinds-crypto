@@ -1,10 +1,11 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AccountsList } from '../components/portfolio/AccountsList.tsx';
 import { AddWalletForm } from '../components/portfolio/AddWallet.tsx';
 import { HoldingsTable } from '../components/portfolio/HoldingsTable.tsx';
-import { WalletGroups } from '../components/portfolio/WalletGroups.tsx';
-import { Button, Card, EmptyState, Notice, PageHeader, Stat } from '../components/ui.tsx';
+import { AllocationCard, OverviewStats } from '../components/portfolio/Overview.tsx';
+import { familyLabel, WalletGroups } from '../components/portfolio/WalletGroups.tsx';
+import { Button, Card, EmptyState, Notice, PageHeader, Segmented } from '../components/ui.tsx';
 import { api, type HoldingsView, ok, okJson } from '../lib/api.ts';
 import { formatUsd, timeAgo } from '../lib/format.ts';
 
@@ -30,10 +31,10 @@ type NoticeItem = {
   key: string;
   tone: 'neutral' | 'warn' | 'bad';
   text: string;
-  action?: 'show-hidden';
+  action?: 'toggle-hidden';
 };
 
-function collectNotices(view: HoldingsView): NoticeItem[] {
+function collectNotices(view: HoldingsView, showingHidden: boolean): NoticeItem[] {
   const notices: NoticeItem[] = [];
   const failed = view.accounts.filter((a) => a.syncSupported && a.lastRun?.status === 'failed');
   if (failed.length > 0) {
@@ -109,18 +110,31 @@ function collectNotices(view: HoldingsView): NoticeItem[] {
     });
   }
   if (view.hidden.count > 0) {
+    const largest = view.hidden.largest
+      .map((h) => `${h.symbol ?? 'Unknown token'} ≈ ${formatUsd(h.valueUsd)}`)
+      .join(', ');
     notices.push({
       key: 'hidden',
       tone: 'neutral',
-      text: `${view.hidden.count} unverified or spam tokens are hidden and not counted${view.hidden.estimatedValueUsd !== '0.00' ? ` (unverified ones ≈ ${formatUsd(view.hidden.estimatedValueUsd)})` : ''}.`,
-      action: 'show-hidden',
+      text: showingHidden
+        ? `Showing ${view.hidden.count} hidden tokens below (dimmed, not counted). Open a row and use Mark verified for any you hold on purpose.`
+        : `${view.hidden.count} unverified or spam tokens are hidden and not counted${view.hidden.estimatedValueUsd !== '0.00' ? ` (unverified ones ≈ ${formatUsd(view.hidden.estimatedValueUsd)})` : ''}.${largest ? ` Largest: ${largest}.` : ''}`,
+      action: 'toggle-hidden',
     });
   }
   return notices;
 }
 
-function Notices({ view, onShowHidden }: { view: HoldingsView; onShowHidden: () => void }) {
-  const notices = collectNotices(view);
+function Notices({
+  view,
+  showingHidden,
+  onToggleHidden,
+}: {
+  view: HoldingsView;
+  showingHidden: boolean;
+  onToggleHidden: () => void;
+}) {
+  const notices = collectNotices(view, showingHidden);
   if (notices.length === 0) return null;
   return (
     <div className="mb-4 space-y-2">
@@ -129,9 +143,9 @@ function Notices({ view, onShowHidden }: { view: HoldingsView; onShowHidden: () 
           key={n.key}
           tone={n.tone}
           action={
-            n.action === 'show-hidden' ? (
-              <Button onClick={onShowHidden} className="shrink-0 text-xs">
-                Review
+            n.action === 'toggle-hidden' ? (
+              <Button onClick={onToggleHidden} className="shrink-0 text-xs">
+                {showingHidden ? 'Hide again' : 'Review'}
               </Button>
             ) : undefined
           }
@@ -143,41 +157,68 @@ function Notices({ view, onShowHidden }: { view: HoldingsView; onShowHidden: () 
   );
 }
 
-function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
-  const option = (v: View, label: string) => (
-    <button
-      type="button"
-      aria-pressed={view === v}
-      onClick={() => onChange(v)}
-      className={
-        view === v
-          ? 'rounded px-2 py-1 bg-canvas text-fg'
-          : 'rounded px-2 py-1 text-muted hover:text-fg'
-      }
-    >
-      {label}
-    </button>
-  );
+/** Which wallets the whole page covers: all of them, or one. */
+function ScopePicker({
+  view,
+  walletId,
+  onChange,
+}: {
+  view: HoldingsView;
+  walletId: string | null;
+  onChange: (walletId: string | null) => void;
+}) {
   return (
-    <div className="flex items-center gap-1 rounded-md border border-border p-0.5 text-xs">
-      {option('wallet', 'By wallet')}
-      {option('asset', 'By asset')}
-    </div>
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-muted">Showing</span>
+      <select
+        value={walletId ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-fg"
+      >
+        <option value="">All wallets</option>
+        {view.walletOptions.map((w) => (
+          <option key={w.walletId} value={w.walletId}>
+            {w.name ?? 'Unnamed wallet'} ({familyLabel(w.family)}) · {formatUsd(w.valueUsd)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
 export function PortfolioPage() {
+  const { wallet } = useSearch({ from: '/' });
+  const navigate = useNavigate({ from: '/' });
+  const walletId = wallet ?? null;
+  const setScope = (id: string | null) => void navigate({ search: id ? { wallet: id } : {} });
+
   const [showHidden, setShowHidden] = useState(false);
+  const [showSmall, setShowSmall] = useState(false);
   const [view, setView] = useState<View>('wallet');
   const [adding, setAdding] = useState(false);
   const [syncRequestedAt, setSyncRequestedAt] = useState<number | null>(null);
 
   const holdings = useQuery({
-    queryKey: ['holdings', showHidden],
+    queryKey: ['holdings', showHidden, walletId],
     queryFn: async () =>
-      okJson(await api.portfolio.holdings.$get({ query: showHidden ? { hidden: '1' } : {} })),
+      okJson(
+        await api.portfolio.holdings.$get({
+          query: {
+            ...(showHidden ? { hidden: '1' as const } : {}),
+            ...(walletId ? { wallet: walletId } : {}),
+          },
+        }),
+      ),
+    // Keep showing the previous scope (dimmed) while the next one loads.
+    placeholderData: keepPreviousData,
     refetchInterval: (q) => (syncInProgress(q.state.data, syncRequestedAt) ? 3_000 : 60_000),
   });
+
+  // A wallet in the URL that no longer exists (or a stale link): fall back to all wallets.
+  const missingWallet = holdings.isError && holdings.error.message === 'wallet not found';
+  useEffect(() => {
+    if (missingWallet) void navigate({ search: {} });
+  }, [missingWallet, navigate]);
 
   const sync = useMutation({
     mutationFn: async () => (await ok(await api.portfolio.sync.$post())).json(),
@@ -205,7 +246,7 @@ export function PortfolioPage() {
     <>
       <PageHeader
         title="Portfolio"
-        subtitle="What do I own? Wallets on Ethereum, Robinhood Chain, and Solana. Venues arrive in step 02."
+        subtitle="What do I own? Wallets on Ethereum, Robinhood Chain, and Solana, plus Coinbase."
         actions={
           <>
             <span className="text-xs text-muted">
@@ -248,60 +289,75 @@ export function PortfolioPage() {
       )}
 
       {data && (
-        <>
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <Stat
-              label="Total value"
-              value={formatUsd(data.totals.valueUsd)}
-              hint="Verified, priced holdings only"
-            />
-            <Stat
-              label="Wallets"
-              value={data.wallets.length}
-              hint={`${syncable.length} chains · ${data.quality.partialAccounts} incomplete · ${data.quality.failedAccounts} failed`}
-            />
-            <Stat
-              label="Assets"
-              value={data.holdings.filter((h) => h.visible).length}
-              hint={data.hidden.count > 0 ? `${data.hidden.count} hidden` : 'none hidden'}
-            />
+        <div className={holdings.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}>
+          <div className="mb-4">
+            <ScopePicker view={data} walletId={walletId} onChange={setScope} />
           </div>
 
-          <Notices view={data} onShowHidden={() => setShowHidden(true)} />
+          <OverviewStats view={data} />
+
+          <Notices
+            view={data}
+            showingHidden={showHidden}
+            onToggleHidden={() => setShowHidden((s) => !s)}
+          />
+
+          <div className="mb-6">
+            <AllocationCard view={data} />
+          </div>
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <ViewToggle view={view} onChange={setView} />
-            <label className="flex items-center gap-2 text-xs text-muted">
-              <input
-                type="checkbox"
-                checked={showHidden}
-                onChange={(e) => setShowHidden(e.target.checked)}
-                className="accent-accent"
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-medium text-muted">Holdings</h2>
+              <Segmented
+                label="Group holdings"
+                options={[
+                  { value: 'wallet', label: 'By wallet' },
+                  { value: 'asset', label: 'By asset' },
+                ]}
+                value={view}
+                onChange={setView}
               />
-              Show hidden ({data.hidden.count})
-            </label>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={showSmall}
+                  onChange={(e) => setShowSmall(e.target.checked)}
+                  className="accent-accent"
+                />
+                Show small balances ({data.small.count})
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={showHidden}
+                  onChange={(e) => setShowHidden(e.target.checked)}
+                  className="accent-accent"
+                />
+                Show hidden ({data.hidden.count})
+              </label>
+            </div>
           </div>
 
           {view === 'wallet' ? (
-            <WalletGroups wallets={data.wallets} showHidden={showHidden} />
+            <WalletGroups
+              wallets={data.wallets}
+              showHidden={showHidden}
+              showSmall={showSmall}
+              smallThresholdUsd={data.small.thresholdUsd}
+            />
           ) : (
-            <Card title="All assets">
+            <Card title={walletId ? 'Assets in this wallet' : 'All assets'}>
               {data.holdings.length === 0 ? (
                 <EmptyState>No holdings to show yet. Use Refresh to sync.</EmptyState>
               ) : (
-                <HoldingsTable holdings={data.holdings} />
+                <HoldingsTable holdings={data.holdings} showSmall={showSmall} small={data.small} />
               )}
             </Card>
           )}
-
-          {data.venues.length > 0 && (
-            <div className="mt-4">
-              <Card title="Venues">
-                <AccountsList accounts={data.venues} />
-              </Card>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </>
   );

@@ -12,6 +12,8 @@ export interface FakeRequest {
   method: string;
   /** Parsed JSON body, if any (e.g. a JSON-RPC request). */
   body: { method?: string; params?: unknown[] } | undefined;
+  /** Request headers, lowercased names (e.g. to check a signed `authorization`). */
+  headers: Record<string, string>;
 }
 
 /** Return a JSON value, a Response, or undefined to let the next route try. */
@@ -21,7 +23,13 @@ export function fakeFetch(routes: Route[]): FetchFn & { calls: FakeRequest[] } {
   const calls: FakeRequest[] = [];
   const fn = async (url: string, init?: RequestInit) => {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
-    const req: FakeRequest = { url, method: init?.method ?? 'GET', body };
+    const headers = Object.fromEntries(
+      Object.entries((init?.headers as Record<string, string> | undefined) ?? {}).map(([k, v]) => [
+        k.toLowerCase(),
+        v,
+      ]),
+    );
+    const req: FakeRequest = { url, method: init?.method ?? 'GET', body, headers };
     calls.push(req);
     for (const route of routes) {
       const out = route(req);

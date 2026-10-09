@@ -19,6 +19,11 @@ export interface ProviderClientOptions {
   headers?: Record<string, string>;
   /** Secrets (e.g. an API key) to scrub from any provider text that ends up in an error. */
   redact?: string[];
+  /**
+   * Auth headers computed for each attempt (so a retry never reuses an expired token), from the
+   * method and path. Used by venues with signed, short-lived tokens (ADR 0017). Never logged.
+   */
+  authorize?: (method: string, path: string) => Record<string, string>;
   fetch?: FetchFn;
   sleep?: Sleep;
 }
@@ -128,6 +133,7 @@ export class ProviderClient {
             'user-agent': USER_AGENT,
             ...this.options.headers,
             ...(init.headers as Record<string, string> | undefined),
+            ...this.options.authorize?.(init.method ?? 'GET', path),
           },
           signal: AbortSignal.timeout(this.timeoutMs),
         });

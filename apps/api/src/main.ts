@@ -5,7 +5,7 @@ import {
   addWallet,
   getHoldings,
   PortfolioEnv,
-  portfolioConfig,
+  portfolioConfigFromEnv,
   renameWallet,
   setAssetStatus,
 } from '@talewinds/portfolio';
@@ -20,7 +20,7 @@ const Env = BaseEnv.extend(PortfolioEnv.shape).extend({
 
 const runtime = startRuntime({ name: 'api', env: Env });
 const { db } = runtime.database;
-const config = portfolioConfig(runtime.env.PORTFOLIO_SYNC_MINUTES);
+const config = portfolioConfigFromEnv(runtime.env);
 
 // The API never calls providers; this only describes how the worker will read each chain.
 const configured = createSources(runtime.env);
@@ -34,7 +34,7 @@ const app = createApp({
   pingDatabase: () => pingDatabase(db),
   latestHeartbeat: () => latestHeartbeat(db),
   listAccounts: () => listAccounts(db),
-  getHoldings: (options) => getHoldings({ db, config }, options),
+  getHoldings: (options) => getHoldings({ db, config, venues: configured.venues }, options),
   requestSync: async () => ({ queued: (await queue.send(JOBS.portfolioSyncAll, {})) !== null }),
   describeSources: () => sourcesDescription,
   addWallet: async (input) => {

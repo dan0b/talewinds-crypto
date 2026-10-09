@@ -18,6 +18,22 @@
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/*
+ * Chart series, in a fixed order. Validated for color-blind safety on the surface (#13161c) as
+ * NEIGHBORS IN THIS ORDER only, so assign them by rank within a chart (largest = 1), never out of
+ * order. "Other" (folded slices) passes against all five; it's dimmer than 3:1, so every chart
+ * using it also lists its values in a table. Plain variables rather than @theme tokens: Tailwind
+ * only emits theme variables it finds used in class names, and charts read these via var().
+ */
+:root {
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+  --color-series-5: #d55181;
+  --color-series-other: #4b515b;
+}
+
 html {
   color-scheme: dark;
 }

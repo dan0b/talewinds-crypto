@@ -14,14 +14,20 @@ src/
   chains/evm/         one adapter for every EVM chain: RPC + Blockscout or Alchemy token discovery
   chains/solana/      RPC (Token + Token-2022 accounts) + Jupiter metadata
   prices/             on-chain first (Jupiter / DexScreener) + DefiLlama natives & cross-check
+  venues/             coinbase/ (view-only key, ADR 0017) and hyperliquid/ (public info API):
+                      balances plus prices on each venue's own markets (ADR 0018)
   testing/            fakeFetch + fixture helpers (tests only)
 test/fixtures/        recorded provider responses (see its README)
 ```
 
 ## Rules
 
-- **Read-only.** No transaction building, signing, or key handling of any kind
+- **Read-only.** No transaction building, signing, or key handling
   ([ADR 0001](../../docs/adr/0001-execution-boundary.md)). Read-only `eth_call` simulations are fine.
+  The one exception ([ADR 0017](../../docs/adr/0017-view-only-venue-keys.md)): `venues/` may sign
+  short-lived auth tokens with a **view-only** venue key from env, using `node:crypto` only. Check
+  the key's permissions with the venue before every read, and refuse a key that can trade or
+  transfer. Never log, store, or put in an error the key or a token.
 - **Adapters by chain family, not by chain.** A new EVM chain is an entry in `CHAIN_PROVIDERS` plus
   the core chain registry, not a new adapter.
 - **Every HTTP call goes through `ProviderClient`.** That gives it rate limiting, retry with backoff,

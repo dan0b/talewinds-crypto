@@ -12,7 +12,7 @@ export const assets = pgTable(
     ref: text('ref').notNull().unique(),
     chainId: text('chain_id').notNull(),
     kind: text('kind').notNull(),
-    /** Contract (EVM) or mint (Solana); null for native assets. */
+    /** Contract (EVM) or mint (Solana); null for native and venue assets (ADR 0018). */
     address: text('address'),
     symbol: text('symbol'),
     name: text('name'),
@@ -31,12 +31,12 @@ export const assets = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    check('assets_kind', sql`${t.kind} in ('native', 'token')`),
+    check('assets_kind', sql`${t.kind} in ('native', 'token', 'venue')`),
     check('assets_status', sql`${t.status} in ('verified', 'unverified', 'spam')`),
     check('assets_status_source', sql`${t.statusSource} in ('auto', 'manual')`),
     check(
       'assets_shape',
-      sql`(${t.kind} = 'native' and ${t.address} is null) or (${t.kind} = 'token' and ${t.address} is not null)`,
+      sql`(${t.kind} in ('native', 'venue') and ${t.address} is null) or (${t.kind} = 'token' and ${t.address} is not null)`,
     ),
     check('assets_decimals', sql`${t.decimals} between 0 and 255`),
     index('assets_chain_idx').on(t.chainId),

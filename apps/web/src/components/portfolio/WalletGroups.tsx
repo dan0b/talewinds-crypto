@@ -1,10 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
-import { api, type ChainGroup, okJson, type WalletGroup } from '../../lib/api.ts';
+import { api, type ChainGroup, okJson, type Position, type WalletGroup } from '../../lib/api.ts';
 import { formatAmount, formatUsd, shortAddress, timeAgo } from '../../lib/format.ts';
 import { Badge, Button, EmptyState } from '../ui.tsx';
-import { SyncBadge } from './AccountsList.tsx';
-import { AssetCell, MarketCapCell, PriceCell, StatusActions, ValueCell } from './cells.tsx';
+import {
+  AssetCell,
+  ChangeCell,
+  MarketCapCell,
+  PriceCell,
+  SmallBalancesRow,
+  StatusActions,
+  ValueCell,
+} from './cells.tsx';
+import { SyncBadge } from './SyncBadge.tsx';
+
+/** "EVM", "Solana", or "Venue" (an exchange account such as Coinbase). */
+export function familyLabel(family: string): string {
+  if (family === 'evm') return 'EVM';
+  if (family === 'solana') return 'Solana';
+  return 'Venue';
+}
 
 function useRefreshHoldings() {
   const queryClient = useQueryClient();
@@ -29,6 +44,9 @@ function WalletName({ wallet }: { wallet: WalletGroup }) {
     },
   });
 
+  if (wallet.kind === 'venue') {
+    return <h3 className="text-base font-semibold">{wallet.name ?? 'Venue account'}</h3>;
+  }
   if (!editing) {
     return (
       <div className="flex items-center gap-2">
@@ -87,7 +105,7 @@ function TrackChain({
       okJson(
         await api.wallets.$post({
           json: {
-            address: wallet.address,
+            address: wallet.address ?? '',
             chains: [chain.key as 'ethereum' | 'robinhood' | 'solana'],
           },
         }),
@@ -110,18 +128,83 @@ function TrackChain({
   );
 }
 
-function ChainSection({ chain, showHidden }: { chain: ChainGroup; showHidden: boolean }) {
+const COLUMNS = 7;
+
+function ChainSection({
+  chain,
+  showHidden,
+  showSmall,
+  smallThresholdUsd,
+}: {
+  chain: ChainGroup;
+  showHidden: boolean;
+  showSmall: boolean;
+  smallThresholdUsd: string;
+}) {
   const [open, setOpen] = useState<string | null>(null);
+  const [smallOpen, setSmallOpen] = useState(false);
   const run = chain.sync.lastRun;
+  const listed = showSmall ? chain.positions : chain.positions.filter((p) => !p.small);
+  const folded = showSmall ? [] : chain.positions.filter((p) => p.small);
+
+  const row = (p: Position) => {
+    const expanded = open === p.assetId;
+    return (
+      <Fragment key={p.assetId}>
+        <tr className={`border-t border-border/60 align-top ${p.visible ? '' : 'opacity-70'}`}>
+          <td className="py-2 pr-3">
+            <AssetCell asset={p} showChain={false} />
+          </td>
+          <td className="py-2 pr-3 text-right tabular-nums">{formatAmount(p.amount)}</td>
+          <td className="py-2 pr-3 text-right">
+            <PriceCell asset={p} />
+          </td>
+          <td className="py-2 pr-3 text-right">
+            <ChangeCell asset={p} />
+          </td>
+          <td className="py-2 pr-3 text-right">
+            <MarketCapCell asset={p} />
+          </td>
+          <td className="py-2 pr-3 text-right">
+            <ValueCell asset={p} />
+          </td>
+          <td className="py-2 text-right">
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-xs text-muted hover:text-fg"
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Hide' : 'Show'} details for ${p.symbol ?? 'token'}`}
+              onClick={() => setOpen(expanded ? null : p.assetId)}
+            >
+              {expanded ? '▾' : '▸'}
+            </button>
+          </td>
+        </tr>
+        {expanded && (
+          <tr className="bg-canvas/40">
+            <td colSpan={COLUMNS} className="px-3 py-3">
+              <div className="mb-2 truncate font-mono text-[11px] text-muted" title={p.ref}>
+                {p.ref}
+              </div>
+              <StatusActions asset={p} />
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
+
   return (
     <section className="mt-3 rounded-md border border-border/70">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-2">
         <div className="flex items-center gap-2 text-sm">
           <span className="font-medium">{chain.chainName}</span>
           <SyncBadge account={chain.sync} />
-          <span className="text-xs text-muted">
-            balances from {timeAgo(chain.sync.lastUsableAt)}
-          </span>
+          {chain.sync.syncSupported && (
+            <span className="text-xs text-muted">
+              balances from {timeAgo(chain.sync.lastUsableAt)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 text-sm">
           {!showHidden && chain.hiddenCount > 0 && (
@@ -143,75 +226,45 @@ function ChainSection({ chain, showHidden }: { chain: ChainGroup; showHidden: bo
       {chain.positions.length === 0 ? (
         <div className="px-3 py-3">
           <EmptyState>
-            {chain.sync.lastRun ? 'No holdings to show on this chain.' : 'Not synced yet.'}
+            {!chain.sync.syncSupported
+              ? 'Not set up: add a view-only API key to .env (see .env.example), then restart pnpm dev.'
+              : chain.sync.lastRun
+                ? 'No holdings to show here.'
+                : 'Not synced yet.'}
           </EmptyState>
         </div>
       ) : (
         <div className="overflow-x-auto px-3">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-muted">
-                <th className="py-2 pr-3 font-normal">Asset</th>
-                <th className="py-2 pr-3 text-right font-normal">Amount</th>
-                <th className="py-2 pr-3 text-right font-normal">Price</th>
-                <th className="py-2 pr-3 text-right font-normal">Market cap</th>
-                <th className="py-2 pr-3 text-right font-normal">Value</th>
-                <th className="py-2 text-right font-normal">
-                  <span className="sr-only">Details</span>
-                </th>
-              </tr>
-            </thead>
+            {/* Only small balances here: the folded row stands alone, without column headers. */}
+            {listed.length > 0 && (
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th className="py-2 pr-3 font-normal">Asset</th>
+                  <th className="py-2 pr-3 text-right font-normal">Amount</th>
+                  <th className="py-2 pr-3 text-right font-normal">Price</th>
+                  <th className="py-2 pr-3 text-right font-normal">24h</th>
+                  <th className="py-2 pr-3 text-right font-normal">Market cap</th>
+                  <th className="py-2 pr-3 text-right font-normal">Value</th>
+                  <th className="py-2 text-right font-normal">
+                    <span className="sr-only">Details</span>
+                  </th>
+                </tr>
+              </thead>
+            )}
             <tbody>
-              {chain.positions.map((p) => {
-                const expanded = open === p.assetId;
-                return (
-                  <Fragment key={p.assetId}>
-                    <tr
-                      className={`border-t border-border/60 align-top ${p.visible ? '' : 'opacity-70'}`}
-                    >
-                      <td className="py-2 pr-3">
-                        <AssetCell asset={p} showChain={false} />
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {formatAmount(p.amount)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <PriceCell asset={p} />
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <MarketCapCell asset={p} />
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <ValueCell asset={p} />
-                      </td>
-                      <td className="py-2 text-right">
-                        <button
-                          type="button"
-                          className="rounded px-2 py-1 text-xs text-muted hover:text-fg"
-                          aria-expanded={expanded}
-                          aria-label={`${expanded ? 'Hide' : 'Show'} details for ${p.symbol ?? 'token'}`}
-                          onClick={() => setOpen(expanded ? null : p.assetId)}
-                        >
-                          {expanded ? '▾' : '▸'}
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded && (
-                      <tr className="bg-canvas/40">
-                        <td colSpan={6} className="px-3 py-3">
-                          <div
-                            className="mb-2 truncate font-mono text-[11px] text-muted"
-                            title={p.ref}
-                          >
-                            {p.ref}
-                          </div>
-                          <StatusActions asset={p} />
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
+              {listed.map(row)}
+              {folded.length > 0 && (
+                <SmallBalancesRow
+                  count={chain.smallCount}
+                  valueUsd={chain.smallValueUsd}
+                  thresholdUsd={smallThresholdUsd}
+                  open={smallOpen}
+                  onToggle={() => setSmallOpen((o) => !o)}
+                  colSpan={COLUMNS}
+                />
+              )}
+              {folded.length > 0 && smallOpen && folded.map(row)}
             </tbody>
           </table>
         </div>
@@ -224,9 +277,13 @@ function ChainSection({ chain, showHidden }: { chain: ChainGroup; showHidden: bo
 export function WalletGroups({
   wallets,
   showHidden,
+  showSmall,
+  smallThresholdUsd,
 }: {
   wallets: WalletGroup[];
   showHidden: boolean;
+  showSmall: boolean;
+  smallThresholdUsd: string;
 }) {
   if (wallets.length === 0) {
     return <EmptyState>No wallets yet. Use “Add wallet” above.</EmptyState>;
@@ -239,10 +296,12 @@ export function WalletGroups({
             <div>
               <WalletName wallet={w} />
               <div className="mt-1 flex items-center gap-2 text-xs text-muted">
-                <Badge>{w.family === 'evm' ? 'EVM' : 'Solana'}</Badge>
-                <span className="font-mono" title={w.address}>
-                  {shortAddress(w.address)}
-                </span>
+                <Badge>{familyLabel(w.family)}</Badge>
+                {w.address && (
+                  <span className="font-mono" title={w.address}>
+                    {shortAddress(w.address)}
+                  </span>
+                )}
               </div>
             </div>
             <div className="text-right">
@@ -260,7 +319,13 @@ export function WalletGroups({
             </div>
           )}
           {w.chains.map((c) => (
-            <ChainSection key={c.accountId} chain={c} showHidden={showHidden} />
+            <ChainSection
+              key={c.accountId}
+              chain={c}
+              showHidden={showHidden}
+              showSmall={showSmall}
+              smallThresholdUsd={smallThresholdUsd}
+            />
           ))}
         </section>
       ))}

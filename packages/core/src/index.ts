@@ -6,5 +6,6 @@ export * from './chains.ts';
 export * from './env.ts';
 export * from './jobs.ts';
 export * from './notes.ts';
+export * from './underlyings.ts';
 export * from './venues.ts';
 export * from './wallets.ts';

@@ -1,0 +1,32 @@
+{
+  "balances": [
+    {
+      "coin": "USDC",
+      "token": 0,
+      "total": "104640.27715828",
+      "hold": "9999.67527",
+      "entryNtl": "0.0"
+    },
+    {
+      "coin": "PURR",
+      "token": 1,
+      "total": "0.62505",
+      "hold": "0.0",
+      "entryNtl": "0.05826966"
+    },
+    {
+      "coin": "HYPE",
+      "token": 150,
+      "total": "47917750.3547392264",
+      "hold": "0.0",
+      "entryNtl": "1357859406.6302433014"
+    },
+    {
+      "coin": "USDE",
+      "token": 235,
+      "total": "0.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+    }
+  ]
+}

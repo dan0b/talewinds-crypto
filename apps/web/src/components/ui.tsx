@@ -106,7 +106,7 @@ export function Stat({
   return (
     <div className="rounded-lg border border-border bg-surface px-4 py-3">
       <div className="text-xs text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
       {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );
@@ -147,5 +147,42 @@ export function Notice({
       </div>
       {action}
     </div>
+  );
+}
+
+/** A small segmented control: one of a few mutually exclusive options. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  /** What the choice is about, for screen readers. */
+  label: string;
+}) {
+  return (
+    <fieldset
+      aria-label={label}
+      className="flex min-w-0 items-center gap-1 rounded-md border border-border p-0.5 text-xs"
+    >
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={
+            value === o.value
+              ? 'rounded px-2 py-1 bg-canvas text-fg'
+              : 'rounded px-2 py-1 text-muted hover:text-fg'
+          }
+        >
+          {o.label}
+        </button>
+      ))}
+    </fieldset>
   );
 }

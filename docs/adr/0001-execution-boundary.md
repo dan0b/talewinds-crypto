@@ -1,6 +1,6 @@
 # 0001 — Execution boundary: read-only core, isolated execution
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by [0017](0017-view-only-venue-keys.md): view-only venue API keys)
 - **Date:** 2026-09-27
 
 ## Context

@@ -102,8 +102,8 @@ export function SystemPage() {
             <p className="mt-3 text-xs text-muted">
               Coinbase:{' '}
               {sources.data.venues.coinbase
-                ? 'API key detected (balances sync from step 02).'
-                : 'no API key set (needed from step 02).'}
+                ? 'API key detected. Each sync first checks with Coinbase that it is view-only.'
+                : 'no API key set. Add a view-only key to .env (see .env.example) to sync Coinbase.'}
             </p>
           )}
         </Card>

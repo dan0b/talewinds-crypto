@@ -47,6 +47,9 @@ there.
 1. **No keys, no signing outside execution.** Only the future `packages/execution` +
    `apps/executor` may load private keys or sign. Main wallets are watch-only. Research, portfolio,
    and AI code is read-only by construction. ([ADR 0001](docs/adr/0001-execution-boundary.md))
+   The one exception: a **view-only venue API key** (Coinbase) may sign read-request tokens in
+   `packages/sources/src/venues/`, and every sync first confirms with the venue that the key can't
+   trade or transfer. ([ADR 0017](docs/adr/0017-view-only-venue-keys.md))
 2. **Money math is exact.** On-chain quantities are `bigint` (`RawAmount`); human-scale values
    (prices, USD) are `Dec`. Never use JS `number` for either. Serialize with `toJson` (bigint-safe).
    See `packages/core/src/amounts.ts`.

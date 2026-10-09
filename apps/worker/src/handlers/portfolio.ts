@@ -1,5 +1,5 @@
 import { JOBS } from '@talewinds/core';
-import { syncAllOwnedWallets, syncCron } from '@talewinds/portfolio';
+import { syncAllOwnedAccounts, syncCron } from '@talewinds/portfolio';
 import type { WorkerContext } from '../context.ts';
 
 export async function registerPortfolioHandlers({
@@ -8,7 +8,7 @@ export async function registerPortfolioHandlers({
   runtime,
 }: WorkerContext): Promise<void> {
   await queue.work(JOBS.portfolioSyncAll, async () => {
-    const r = await syncAllOwnedWallets(portfolio);
+    const r = await syncAllOwnedAccounts(portfolio);
     runtime.log.info(
       { succeeded: r.succeeded, partial: r.partial, failed: r.failed, prices: r.pricesUpdated },
       'portfolio sync finished',
