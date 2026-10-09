@@ -45,7 +45,7 @@ export const wallets = pgTable(
     ...timestamps,
   },
   (t) => [
-    check('wallets_family', sql`${t.family} in ('evm', 'solana')`),
+    check('wallets_family', sql`${t.family} in ('evm', 'solana', 'bitcoin')`),
     uniqueIndex('wallets_family_address').on(t.family, t.address),
   ],
 );

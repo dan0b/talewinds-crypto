@@ -3,12 +3,13 @@ import { Fragment, useState } from 'react';
 import type { HoldingsView } from '../../lib/api.ts';
 import { formatChangeUsd, formatShare, formatUsd, shareFraction } from '../../lib/format.ts';
 import { Donut, type DonutSegment } from '../charts/Donut.tsx';
-import { Badge, Card, EmptyState, Segmented, Stat } from '../ui.tsx';
+import { Badge, Button, Card, EmptyState, Segmented, Stat } from '../ui.tsx';
 import { ChangePct, ChangeSummaryCell } from './cells.tsx';
+import { TagEditor, TagManager } from './Tags.tsx';
 
 type Overview = HoldingsView['overview'];
 type Row = Overview['byAsset'][number];
-type Dimension = 'asset' | 'wallet' | 'chain';
+type Dimension = 'asset' | 'category' | 'theme' | 'wallet' | 'chain';
 
 /** Slices drawn in color (the palette has five, validated as neighbors in order). */
 const NAMED_SLICES = 5;
@@ -22,8 +23,9 @@ const SERIES = [
 const OTHER = 'var(--color-series-other)';
 const OTHER_KEY = '__other';
 
-function rowLabel(row: Row): string {
+function rowLabel(row: Row, dimension?: Dimension): string {
   if (row.kind === 'small') return 'Small balances';
+  if (row.kind === 'untagged') return dimension === 'theme' ? 'No theme' : 'Uncategorized';
   if (row.kind === 'wallet') return row.label ?? 'Unnamed wallet';
   return row.label ?? 'Unknown token';
 }
@@ -37,7 +39,11 @@ function colorsOf(rows: Row[]): Map<string, string> {
   const colors = new Map<string, string>();
   let slot = 0;
   for (const row of rows) {
-    const named = row.kind !== 'small' && slot < NAMED_SLICES && shareFraction(row.share) > 0;
+    const named =
+      row.kind !== 'small' &&
+      row.kind !== 'untagged' &&
+      slot < NAMED_SLICES &&
+      shareFraction(row.share) > 0;
     colors.set(row.key, named ? (SERIES[slot++] as string) : OTHER);
   }
   return colors;
@@ -146,6 +152,8 @@ export function OverviewStats({ view }: { view: HoldingsView }) {
 
 const DIMENSION_HEADING: Record<Dimension, string> = {
   asset: 'Asset',
+  category: 'Category',
+  theme: 'Theme',
   wallet: 'Wallet',
   chain: 'Chain',
 };
@@ -156,48 +164,76 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
   const [chosen, setChosen] = useState<Dimension>('asset');
   const [active, setActive] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [tagging, setTagging] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
   // A single wallet has no by-wallet breakdown.
   const dimension: Dimension = !all && chosen === 'wallet' ? 'asset' : chosen;
   const o = view.overview;
   // "By asset" counts each coin once, wherever and however it's held (ADR 0019).
-  const rows = dimension === 'asset' ? o.byCoin : dimension === 'wallet' ? o.byWallet : o.byChain;
+  const rows = {
+    asset: o.byCoin,
+    category: o.byCategory,
+    theme: o.byTheme,
+    wallet: o.byWallet,
+    chain: o.byChain,
+  }[dimension];
+  // Themes overlap (a coin can have several), so they get bars, never a part-to-whole donut.
+  const overlapping = dimension === 'theme';
   const colors = colorsOf(rows);
   const segments = segmentsOf(rows, colors);
+  const hasTags = view.tags.categories.length + view.tags.themes.length > 0;
   const sliceOf = (row: Row) => (colors.get(row.key) === OTHER ? OTHER_KEY : row.key);
 
   const options: { value: Dimension; label: string }[] = [
-    { value: 'asset', label: 'By asset' },
-    ...(all ? [{ value: 'wallet' as const, label: 'By wallet' }] : []),
-    { value: 'chain', label: 'By chain' },
+    { value: 'asset', label: 'Asset' },
+    { value: 'category', label: 'Category' },
+    { value: 'theme', label: 'Theme' },
+    ...(all ? [{ value: 'wallet' as const, label: 'Wallet' }] : []),
+    { value: 'chain', label: 'Chain' },
   ];
 
   return (
     <Card
       title="Allocation"
       aside={
-        <Segmented
-          label="Break the total down by"
-          options={options}
-          value={dimension}
-          onChange={(d) => {
-            setChosen(d);
-            setActive(null);
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {hasTags && (
+            <Button className="px-2 py-1 text-xs" onClick={() => setManaging((m) => !m)}>
+              {managing ? 'Close tags' : 'Manage tags'}
+            </Button>
+          )}
+          <Segmented
+            label="Break the total down by"
+            options={options}
+            value={dimension}
+            onChange={(d) => {
+              setChosen(d);
+              setActive(null);
+            }}
+          />
+        </div>
       }
     >
+      {managing && <TagManager all={view.tags} onClose={() => setManaging(false)} />}
+      {(dimension === 'category' || dimension === 'theme') && !hasTags && (
+        <p className="mb-3 text-xs text-muted">
+          No categories or themes yet. Switch to Asset and use “Tag” on a coin to add some.
+        </p>
+      )}
       {segments.length === 0 ? (
         <EmptyState>No priced holdings to break down yet.</EmptyState>
       ) : (
         <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
-          <Donut
-            segments={segments}
-            label={`Allocation by ${DIMENSION_HEADING[dimension].toLowerCase()}`}
-            centerLabel={all ? 'Total' : 'Wallet'}
-            centerValue={formatUsd(o.totalUsd)}
-            active={active}
-            onActiveChange={setActive}
-          />
+          {!overlapping && (
+            <Donut
+              segments={segments}
+              label={`Allocation by ${DIMENSION_HEADING[dimension].toLowerCase()}`}
+              centerLabel={all ? 'Total' : 'Wallet'}
+              centerValue={formatUsd(o.totalUsd)}
+              active={active}
+              onActiveChange={setActive}
+            />
+          )}
           <div className="w-full min-w-0 flex-1 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -214,6 +250,8 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                   const highlighted = active !== null && active === sliceOf(row);
                   const parts = row.parts && row.parts.length > 1 ? row.parts : null;
                   const expanded = parts !== null && open === row.key;
+                  const editingTags =
+                    row.kind === 'coin' && row.tags !== null && tagging === row.key;
                   return (
                     <Fragment key={row.key}>
                       <tr
@@ -228,7 +266,7 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                               className="inline-block size-2.5 shrink-0 rounded-sm"
                               style={{ background: color }}
                             />
-                            <span className="font-medium">{rowLabel(row)}</span>
+                            <span className="font-medium">{rowLabel(row, dimension)}</span>
                             {row.detail && <Badge>{row.detail}</Badge>}
                             {parts && (
                               <button
@@ -242,6 +280,28 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                               </button>
                             )}
                           </div>
+                          {row.kind === 'coin' && row.tags && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1 pl-4.5">
+                              {row.tags.category && (
+                                <Badge tone="accent">{row.tags.category.name}</Badge>
+                              )}
+                              {row.tags.themes.map((t) => (
+                                <Badge key={t.id}>{t.name}</Badge>
+                              ))}
+                              <button
+                                type="button"
+                                className="text-xs text-muted hover:text-fg"
+                                aria-expanded={editingTags}
+                                onClick={() => setTagging(editingTags ? null : row.key)}
+                              >
+                                {editingTags
+                                  ? 'Done'
+                                  : row.tags.category || row.tags.themes.length
+                                    ? 'Edit tags'
+                                    : 'Tag'}
+                              </button>
+                            </div>
+                          )}
                           {row.kind === 'small' && row.count !== null && (
                             <div className="mt-0.5 pl-4.5 text-xs text-muted">
                               {row.count} {row.count === 1 ? 'holding' : 'holdings'}, each under{' '}
@@ -268,6 +328,18 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                           <ChangeSummaryCell change={row.change24h} />
                         </td>
                       </tr>
+                      {editingTags && row.tags && (
+                        <tr>
+                          <td colSpan={4} className="bg-canvas/40 px-3 py-3">
+                            <TagEditor
+                              coinKey={row.key}
+                              coinLabel={rowLabel(row)}
+                              tags={row.tags}
+                              all={view.tags}
+                            />
+                          </td>
+                        </tr>
+                      )}
                       {expanded &&
                         parts.map((part) => (
                           <tr key={part.assetId} className="text-xs text-muted">
@@ -289,6 +361,12 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                 })}
               </tbody>
             </table>
+            {overlapping && (
+              <p className="mt-2 text-xs text-muted">
+                A coin with several themes counts in each, so these shares can add up to more than
+                100%.
+              </p>
+            )}
             {o.unpricedCount > 0 && (
               <p className="mt-2 text-xs text-muted">
                 {o.unpricedCount} verified {o.unpricedCount === 1 ? 'holding has' : 'holdings have'}{' '}

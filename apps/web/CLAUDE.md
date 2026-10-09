@@ -7,7 +7,8 @@ A Vite + React single-page app that talks only to the API.
 - `src/routes/*.tsx` — one file per page.
 - `src/components/portfolio/` — the Portfolio page's parts: `Overview` (stat tiles and the
   allocation card), `WalletGroups` (wallet → chain, the default), `HoldingsTable` (by asset),
-  `AddWallet`, shared table `cells`, `SyncBadge`. Venue accounts (Coinbase) render as a wallet-style
+  `AddWallet`, shared table `cells`, `SyncBadge`, `Tags` (the coin tag editor and tag manager).
+  Venue accounts (Coinbase) render as a wallet-style
   card with one section. The page's scope (all, one wallet, or one venue account) lives in the URL:
   `/?wallet=<id>`.
 - `src/components/charts/` — charts (`Donut`). Inline SVG, no chart library.

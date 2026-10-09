@@ -59,7 +59,7 @@ export function AddWalletForm({ onClose }: { onClose: () => void }) {
               autoFocus
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="0x… (EVM) or a Solana address"
+              placeholder="0x… (EVM), a Solana address, or a Bitcoin address (bc1…, 1…, 3…)"
               spellCheck={false}
               className="mt-1 w-full rounded-md border border-border bg-canvas px-3 py-2 font-mono text-sm text-fg placeholder:text-muted"
             />
@@ -77,12 +77,17 @@ export function AddWalletForm({ onClose }: { onClose: () => void }) {
         </div>
 
         {invalid && (
-          <p className="text-xs text-bad">That doesn't look like an EVM (0x…) or Solana address.</p>
+          <p className="text-xs text-bad">
+            That doesn't look like an EVM (0x…), Solana, or Bitcoin address. A Bitcoin address with
+            a typo fails its checksum, so check it was copied in full.
+          </p>
         )}
         {family && (
           <fieldset className="flex flex-wrap items-center gap-4 text-sm">
             <legend className="mb-1 text-xs text-muted">
-              {family === 'evm' ? 'EVM wallet: track it on' : 'Solana wallet: tracked on'}
+              {family === 'evm'
+                ? 'EVM wallet: track it on'
+                : `${family === 'bitcoin' ? 'Bitcoin' : 'Solana'} wallet: tracked on`}
             </legend>
             {chains.map((key) => (
               <label key={key} className="flex items-center gap-2">

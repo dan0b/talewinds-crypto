@@ -1,10 +1,10 @@
 # 02a — Bitcoin wallets
 
 - **Phase:** V0a — What do I own
-- **Status:** Ready
+- **Status:** ✅ Done (to confirm: your Xverse balances, once the addresses are added)
 - **Depends on:** [01a Wallets](01a-wallets-and-market-data.md), [02](02-venue-balances.md) (coin grouping)
 - **Written:** 2026-10-08
-- **Build log:** —
+- **Build log:** [`2026-10-08-bitcoin-wallets`](../build-logs/2026-10-08-bitcoin-wallets.md)
 
 ## Goal
 
@@ -30,8 +30,9 @@ You hold BTC in Xverse, and "what do I own" isn't complete without it.
   address always lands in the right family.
 - **One address is one wallet** ([ADR 0016](../adr/0016-wallets.md)). Xverse's two addresses are two
   wallets; you name them, e.g. "Xverse · payment" and "Xverse · ordinals".
-- **Balances** from mempool.space's public API (no key): confirmed balance = funded − spent. An
-  unconfirmed change is shown as a note and isn't counted until it confirms.
+- **Balances** from a public Esplora API (no key): confirmed balance = funded − spent. An
+  unconfirmed change is shown as a note and isn't counted until it confirms. (Built with
+  mempool.space first; switched to Blockstream first on 2026-10-09, see the build log.)
 - **Prices:** DefiLlama, like other native assets. BTC maps to the `btc` coin, so it groups with
   WBTC.
 - **Dashboard and CLI:** "Add wallet" and `tw wallet add` recognize Bitcoin addresses. A Bitcoin
@@ -56,10 +57,10 @@ You hold BTC in Xverse, and "what do I own" isn't complete without it.
 ## Acceptance criteria
 
 - [ ] Each Xverse address's balance matches Xverse (and mempool.space).
-- [ ] All four address types are accepted; a typo (bad checksum) is rejected with a clear message.
-- [ ] A Bitcoin `1…` or `3…` address is never detected as Solana, and Solana addresses still are.
-- [ ] BTC appears in the total and in the BTC coin alongside WBTC.
-- [ ] Tests use public, well-known addresses only.
+- [x] All four address types are accepted; a typo (bad checksum) is rejected with a clear message.
+- [x] A Bitcoin `1…` or `3…` address is never detected as Solana, and Solana addresses still are.
+- [x] BTC appears in the total and in the BTC coin alongside WBTC.
+- [x] Tests use public, well-known addresses only.
 
 ## Open questions
 

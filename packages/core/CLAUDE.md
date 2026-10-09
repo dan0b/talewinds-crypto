@@ -12,6 +12,8 @@ Everything else depends on it, including the browser dashboard.
   toward, and in what form ([ADR 0019](../../docs/adr/0019-underlying-grouping.md)). Every token
   entry cites how its contract was verified; unlisted assets are their own coin.
 - `addresses.ts` — address validation and normalization per chain family.
+- `bitcoin.ts` — pure SHA-256, base58check, and bech32/bech32m: `bitcoinAddressType` (mainnet).
+  Pure because the dashboard validates addresses in the browser.
 - `accounts.ts` — ownership, account kinds, entity kinds, `NewAccountInput`, `normalizeAccount` (refs).
 - `amounts.ts` — `RawAmount` (`bigint`), `Dec` (decimal), formatting/parsing, `toJson`.
 - `jobs.ts` — background job contracts (`JOBS`): name + input/output schemas.

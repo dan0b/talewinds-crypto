@@ -12,6 +12,7 @@ import { CHAIN_KEYS, CHAINS, type ChainFamily, type ChainKey } from './chains.ts
 export function detectChainFamily(address: string): ChainFamily | null {
   const a = address.trim();
   if (isValidAddress('evm', a)) return 'evm';
+  if (isValidAddress('bitcoin', a)) return 'bitcoin';
   if (isValidAddress('solana', a)) return 'solana';
   return null;
 }

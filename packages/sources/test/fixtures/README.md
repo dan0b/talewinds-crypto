@@ -26,4 +26,7 @@ Re-record when a provider changes its response shape, and keep fixtures small.
   sub-accounts) and the HLP vault (`0xdfc2…f303`; vault equities, trimmed to two). Spot metadata is
   trimmed to USDC, PURR, and HYPE, and the HYPE order book to five levels a side. One synthetic
   entry: a zero USDE balance in `hyperliquid-spot-state.json` (must be dropped).
+- `esplora-address-*.json` were recorded 2026-10-08 from mempool.space for public addresses: the
+  genesis address (`1A1z…DivfNa`, with real unconfirmed dust in its mempool stats) and BIP350's
+  Taproot example (`bc1p0xlx…k5jj0`).
 

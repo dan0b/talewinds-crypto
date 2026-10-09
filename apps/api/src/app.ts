@@ -1,4 +1,4 @@
-import { AssetStatus, CHAIN_KEYS } from '@talewinds/core';
+import { AssetStatus, CHAIN_KEYS, CoinKey, TagKind, TagName } from '@talewinds/core';
 import type { AccountRow, HeartbeatRow } from '@talewinds/db';
 import type { HoldingsView } from '@talewinds/portfolio';
 import type { SourceDescription } from '@talewinds/sources';
@@ -37,6 +37,18 @@ export interface ApiDeps {
     walletId: string,
     name: string | null,
   ): Promise<{ walletId: string; name: string | null }>;
+  /** Delete a wallet and its sync history (step 02d). Throws `Unknown wallet …`. */
+  removeWallet(
+    walletId: string,
+  ): Promise<{ walletId: string; name: string | null; accounts: number }>;
+  /** Categories and themes (step 02b). Duplicate names throw `… already exists` / `… already named`. */
+  createTag(kind: TagKind, name: string): Promise<{ id: string; kind: string; name: string }>;
+  /** Throws `Unknown tag` for a missing tag. */
+  renameTag(id: string, name: string): Promise<{ id: string; kind: string; name: string }>;
+  deleteTag(id: string): Promise<void>;
+  /** Throws `Unknown tag … (expected a category)` for a tag that isn't one. */
+  setCoinCategory(coinKey: string, tagId: string | null): Promise<void>;
+  setCoinThemes(coinKey: string, tagIds: string[]): Promise<void>;
 }
 
 /** A worker that hasn't checked in for this long is considered down. */
@@ -74,6 +86,20 @@ const WalletBody = z.object({
   chains: z.array(z.enum(CHAIN_KEYS)).min(1).optional(),
 });
 const RenameBody = z.object({ name: z.string().trim().max(64).nullable() });
+const TagBody = z.object({ kind: TagKind, name: TagName });
+const TagRenameBody = z.object({ name: TagName });
+const CategoryBody = z.object({ coinKey: CoinKey, tagId: z.uuid().nullable() });
+const ThemesBody = z.object({ coinKey: CoinKey, tagIds: z.array(z.uuid()).max(50) });
+
+/** Tag errors from the data layer are written for people; map them to status codes. */
+const tagError = (err: unknown): { status: 400 | 404 | 409; error: string } | null => {
+  const message = errorMessage(err);
+  if (/already exists|already named/.test(message)) return { status: 409, error: message };
+  if (message.startsWith('Unknown tag') && message.includes('expected'))
+    return { status: 400, error: message };
+  if (message.startsWith('Unknown tag')) return { status: 404, error: 'tag not found' };
+  return null;
+};
 
 /** Validate a request part with a Zod schema; the parsed type flows to the typed client. */
 const valid = <T extends 'json' | 'query', S extends z.ZodType>(target: T, schema: S) =>
@@ -148,6 +174,72 @@ export function createApp(deps: ApiDeps) {
       if (!Uuid.safeParse(id).success) return c.json({ error: 'invalid wallet id' }, 400);
       try {
         return c.json(await deps.renameWallet(id, c.req.valid('json').name), 200);
+      } catch (err) {
+        if (errorMessage(err).startsWith('Unknown wallet'))
+          return c.json({ error: 'wallet not found' }, 404);
+        throw err;
+      }
+    })
+    .post('/tags', valid('json', TagBody), async (c) => {
+      const { kind, name } = c.req.valid('json');
+      try {
+        return c.json({ tag: await deps.createTag(kind, name) }, 201);
+      } catch (err) {
+        const mapped = tagError(err);
+        if (mapped?.status === 409) return c.json({ error: mapped.error }, 409);
+        throw err;
+      }
+    })
+    .patch('/tags/:id', valid('json', TagRenameBody), async (c) => {
+      const id = c.req.param('id');
+      if (!Uuid.safeParse(id).success) return c.json({ error: 'invalid tag id' }, 400);
+      try {
+        return c.json({ tag: await deps.renameTag(id, c.req.valid('json').name) }, 200);
+      } catch (err) {
+        const mapped = tagError(err);
+        if (mapped?.status === 404) return c.json({ error: mapped.error }, 404);
+        if (mapped?.status === 409) return c.json({ error: mapped.error }, 409);
+        throw err;
+      }
+    })
+    .delete('/tags/:id', async (c) => {
+      const id = c.req.param('id');
+      if (!Uuid.safeParse(id).success) return c.json({ error: 'invalid tag id' }, 400);
+      try {
+        await deps.deleteTag(id);
+        return c.json({ deleted: true }, 200);
+      } catch (err) {
+        if (tagError(err)?.status === 404) return c.json({ error: 'tag not found' }, 404);
+        throw err;
+      }
+    })
+    .put('/coin-tags/category', valid('json', CategoryBody), async (c) => {
+      const { coinKey, tagId } = c.req.valid('json');
+      try {
+        await deps.setCoinCategory(coinKey, tagId);
+        return c.json({ ok: true }, 200);
+      } catch (err) {
+        const mapped = tagError(err);
+        if (mapped) return c.json({ error: mapped.error }, 400);
+        throw err;
+      }
+    })
+    .put('/coin-tags/themes', valid('json', ThemesBody), async (c) => {
+      const { coinKey, tagIds } = c.req.valid('json');
+      try {
+        await deps.setCoinThemes(coinKey, tagIds);
+        return c.json({ ok: true }, 200);
+      } catch (err) {
+        const mapped = tagError(err);
+        if (mapped) return c.json({ error: mapped.error }, 400);
+        throw err;
+      }
+    })
+    .delete('/wallets/:id', async (c) => {
+      const id = c.req.param('id');
+      if (!Uuid.safeParse(id).success) return c.json({ error: 'invalid wallet id' }, 400);
+      try {
+        return c.json({ removed: await deps.removeWallet(id) }, 200);
       } catch (err) {
         if (errorMessage(err).startsWith('Unknown wallet'))
           return c.json({ error: 'wallet not found' }, 404);

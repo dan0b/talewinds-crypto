@@ -7,12 +7,14 @@ const CHAIN_NAMES: Record<string, string> = {
   ethereum: 'Ethereum',
   robinhood: 'Robinhood Chain',
   solana: 'Solana',
+  bitcoin: 'Bitcoin',
 };
 
 const DISCOVERY: Record<string, string> = {
   blockscout: 'Blockscout (keyless)',
   alchemy: 'Alchemy',
   'solana-rpc': 'Solana RPC',
+  none: 'None needed (BTC only, via mempool.space)',
   unavailable: 'Unavailable: set ALCHEMY_API_KEY',
 };
 

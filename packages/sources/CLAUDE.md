@@ -13,6 +13,7 @@ src/
   shared/             ProviderClient (rate limit, retry, timeout, Zod), JSON-RPC, exact JSON, meter
   chains/evm/         one adapter for every EVM chain: RPC + Blockscout or Alchemy token discovery
   chains/solana/      RPC (Token + Token-2022 accounts) + Jupiter metadata
+  chains/bitcoin/     Esplora (Blockstream, mempool.space fallback): confirmed BTC per address
   prices/             on-chain first (Jupiter / DexScreener) + DefiLlama natives & cross-check
   venues/             coinbase/ (view-only key, ADR 0017) and hyperliquid/ (public info API):
                       balances plus prices on each venue's own markets (ADR 0018)

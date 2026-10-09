@@ -5,8 +5,10 @@ export interface ChainProviderConfig {
   publicRpcUrl: string;
   /** Alchemy network slug, if Alchemy serves this chain. */
   alchemyNetwork?: string;
-  /** Where the list of held tokens comes from. */
-  tokenDiscovery: 'blockscout' | 'alchemy' | 'solana-rpc';
+  /** Where the list of held tokens comes from (`none`: the chain has only its native coin). */
+  tokenDiscovery: 'blockscout' | 'alchemy' | 'solana-rpc' | 'none';
+  /** A second endpoint with the same API, used when the first is down. */
+  fallbackUrl?: string;
   blockscoutUrl?: string;
   /** Minimum spacing between RPC requests on the public endpoint. */
   publicRpcIntervalMs: number;
@@ -49,6 +51,17 @@ export const CHAIN_PROVIDERS: Record<ChainKey, ChainProviderConfig> = {
     defillamaChain: 'solana',
     dexscreenerChain: 'solana',
     nativeCoingeckoId: 'solana',
+  },
+  bitcoin: {
+    // Esplora API, public and keyless (step 02a). Blockstream first: on 2026-10-09 mempool.space
+    // began resetting TLS handshakes from here, so it became the fallback (same API).
+    publicRpcUrl: 'https://blockstream.info',
+    fallbackUrl: 'https://mempool.space',
+    tokenDiscovery: 'none',
+    publicRpcIntervalMs: 1000,
+    defillamaChain: 'bitcoin',
+    dexscreenerChain: 'bitcoin',
+    nativeCoingeckoId: 'bitcoin',
   },
 };
 

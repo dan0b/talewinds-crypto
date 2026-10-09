@@ -1,4 +1,5 @@
-import { parseVenueAssetRef } from './assets.ts';
+import { z } from 'zod';
+import { AssetRef, parseVenueAssetRef } from './assets.ts';
 import { CHAINS } from './chains.ts';
 
 /**
@@ -28,7 +29,7 @@ export interface UnderlyingLink {
 }
 
 /** Native assets map by SLIP-44 coin type: identity, not a ticker (ETH's gas on any EVM chain). */
-const NATIVE_COIN_TYPES: Record<string, UnderlyingId> = { '60': 'eth', '501': 'sol' };
+const NATIVE_COIN_TYPES: Record<string, UnderlyingId> = { '0': 'btc', '60': 'eth', '501': 'sol' };
 
 const ETH = CHAINS.ethereum.id;
 const ROBINHOOD = CHAINS.robinhood.id;
@@ -119,3 +120,22 @@ export function underlyingOf(ref: string): UnderlyingLink | null {
   }
   return null;
 }
+
+/**
+ * How a coin is identified for tags and groupings (step 02b): a registry coin's ID (`eth`), or
+ * the asset's own ref for a coin outside the registry (HOOKR is its own coin).
+ */
+export const CoinKey = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .refine((key) => Object.hasOwn(UNDERLYINGS, key) || AssetRef.safeParse(key).success, {
+    message: 'Expected a coin: a registry ID like eth, or an asset ID like eip155:1/erc20:0x…',
+  });
+
+/** Your labels for coins: one category each (Major, Speculative…), any number of themes. */
+export const TAG_KINDS = ['category', 'theme'] as const;
+export const TagKind = z.enum(TAG_KINDS);
+export type TagKind = z.infer<typeof TagKind>;
+export const TagName = z.string().trim().min(1, 'A tag needs a name').max(40);

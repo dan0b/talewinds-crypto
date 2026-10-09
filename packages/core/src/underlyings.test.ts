@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AssetRef, nativeAssetRef, venueAssetRef } from './assets.ts';
 import { CHAINS } from './chains.ts';
-import { TOKEN_UNDERLYINGS, underlyingOf } from './underlyings.ts';
+import { CoinKey, TOKEN_UNDERLYINGS, underlyingOf } from './underlyings.ts';
 
 describe('underlying grouping (ADR 0019)', () => {
   it('maps native gas assets by coin type, on every chain', () => {
@@ -47,5 +47,14 @@ describe('underlying grouping (ADR 0019)', () => {
       expect(AssetRef.safeParse(ref).success).toBe(true);
       if (ref.includes('/erc20:')) expect(ref).toBe(ref.toLowerCase());
     }
+  });
+
+  it('accepts registry IDs and asset IDs as coin keys, nothing else', () => {
+    expect(CoinKey.safeParse('eth').success).toBe(true);
+    expect(
+      CoinKey.safeParse('eip155:4663/erc20:0x18e674231a58c239dc7daedcffe15ec3a24cff5c').success,
+    ).toBe(true);
+    expect(CoinKey.safeParse('HOOKR').success).toBe(false); // tickers aren't identities
+    expect(CoinKey.safeParse('').success).toBe(false);
   });
 });

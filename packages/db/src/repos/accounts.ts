@@ -1,4 +1,4 @@
-import { CHAINS, NewAccountInput, normalizeAccount } from '@talewinds/core';
+import { CHAINS, type ChainFamily, NewAccountInput, normalizeAccount } from '@talewinds/core';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Db, Executor } from '../client.ts';
 import { accounts, entities, wallets } from '../schema/index.ts';
@@ -28,7 +28,7 @@ export async function ensureSelfEntity(db: Executor): Promise<string> {
  */
 export async function ensureWallet(
   db: Executor,
-  family: 'evm' | 'solana',
+  family: ChainFamily,
   address: string,
   name: string | null,
 ): Promise<{ wallet: WalletRow; created: boolean }> {

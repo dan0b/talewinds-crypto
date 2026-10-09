@@ -1,3 +1,4 @@
+import type { ChainKey } from '@talewinds/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { api, type ChainGroup, okJson, type Position, type WalletGroup } from '../../lib/api.ts';
@@ -14,10 +15,11 @@ import {
 } from './cells.tsx';
 import { SyncBadge } from './SyncBadge.tsx';
 
-/** "EVM", "Solana", or "Venue" (an exchange account such as Coinbase). */
+/** "EVM", "Solana", "Bitcoin", or "Venue" (an exchange account such as Coinbase). */
 export function familyLabel(family: string): string {
   if (family === 'evm') return 'EVM';
   if (family === 'solana') return 'Solana';
+  if (family === 'bitcoin') return 'Bitcoin';
   return 'Venue';
 }
 
@@ -30,6 +32,21 @@ function WalletName({ wallet }: { wallet: WalletGroup }) {
   const refresh = useRefreshHoldings();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(wallet.name ?? '');
+  const remove = useMutation({
+    mutationFn: async () =>
+      okJson(await api.wallets[':id'].$delete({ param: { id: wallet.walletId } })),
+    // If this wallet was the page's scope, the next load 404s and the page returns to all wallets.
+    onSuccess: refresh,
+  });
+  const confirmRemove = () => {
+    const what = `"${wallet.name ?? 'Unnamed wallet'}" (${familyLabel(wallet.family)}, ${shortAddress(wallet.address)})`;
+    if (
+      window.confirm(
+        `Remove ${what}? Its balances and sync history are deleted. You can add the address again anytime.`,
+      )
+    )
+      remove.mutate();
+  };
   const rename = useMutation({
     mutationFn: async (name: string) =>
       okJson(
@@ -61,6 +78,15 @@ function WalletName({ wallet }: { wallet: WalletGroup }) {
         >
           Rename
         </button>
+        <button
+          type="button"
+          className="text-xs text-muted hover:text-bad"
+          disabled={remove.isPending}
+          onClick={confirmRemove}
+        >
+          {remove.isPending ? 'Removing…' : 'Remove'}
+        </button>
+        {remove.isError && <span className="text-xs text-bad">{remove.error.message}</span>}
       </div>
     );
   }
@@ -106,7 +132,7 @@ function TrackChain({
         await api.wallets.$post({
           json: {
             address: wallet.address ?? '',
-            chains: [chain.key as 'ethereum' | 'robinhood' | 'solana'],
+            chains: [chain.key as ChainKey],
           },
         }),
         201,

@@ -23,6 +23,8 @@ import {
   type LatestPrice,
   latestPrices,
   listAccounts,
+  listCoinTags,
+  listTags,
   listWallets,
   type PriceObservationPoint,
   priceObservationsBetween,
@@ -189,6 +191,18 @@ export interface ChangeSummary {
   uncoveredCount: number;
 }
 
+/** A category or theme, as the views show it (step 02b). */
+export interface TagRef {
+  id: string;
+  name: string;
+}
+
+/** A coin's labels: at most one category, any number of themes. */
+export interface CoinTags {
+  category: TagRef | null;
+  themes: TagRef[];
+}
+
 /** One holding inside a coin's row: where it sits, and in what form. */
 export interface AllocationPart {
   assetId: string;
@@ -200,9 +214,12 @@ export interface AllocationPart {
 }
 
 export interface AllocationRow {
-  /** `small` is the folded row of small balances. */
-  kind: 'asset' | 'coin' | 'wallet' | 'chain' | 'small';
-  /** Asset, wallet, or chain ID (`small` for the folded row). */
+  /**
+   * `small` is the folded row of small balances; `untagged` is the row for coins without a
+   * category (in the by-category view) or without a theme (in the by-theme view).
+   */
+  kind: 'asset' | 'coin' | 'wallet' | 'chain' | 'category' | 'theme' | 'untagged' | 'small';
+  /** Asset, coin, wallet, chain, or tag ID (`small` / `untagged` for those rows). */
   key: string;
   /** Symbol, wallet name, or chain name; null when unknown (an unnamed wallet). */
   label: string | null;
@@ -216,6 +233,8 @@ export interface AllocationRow {
   change24h: ChangeSummary;
   /** For a coin: the holdings that make it up, largest first. */
   parts: AllocationPart[] | null;
+  /** For a coin: its category and themes. */
+  tags: CoinTags | null;
 }
 
 export interface Overview {
@@ -228,6 +247,13 @@ export interface Overview {
    * first; coins worth less than the small-balance threshold fold into one row (ADR 0019).
    */
   byCoin: AllocationRow[];
+  /** Each category's share, "Uncategorized" last. Categories don't overlap: adds up to 100%. */
+  byCategory: AllocationRow[];
+  /**
+   * Each theme's share, "No theme" last. A coin with several themes counts in each, so the shares
+   * can add up to more than 100%.
+   */
+  byTheme: AllocationRow[];
   /** Empty when the scope is a single wallet. */
   byWallet: AllocationRow[];
   byChain: AllocationRow[];
@@ -256,6 +282,8 @@ export interface HoldingsView {
   scope: { walletId: string | null };
   /** Every wallet with its total, whatever the scope (for choosing one). */
   walletOptions: WalletOption[];
+  /** Every category and theme you've created, for tagging coins. */
+  tags: { categories: TagRef[]; themes: TagRef[] };
   totals: {
     /** Visible (verified), priced holdings only. */
     valueUsd: string;
@@ -306,6 +334,11 @@ export interface HoldingsInput {
   venuesEnabled?: Partial<Record<Venue, boolean>>;
   /** Recorded prices around the 24-hour mark (see `baselineWindow`). */
   priceHistory?: PriceObservationPoint[];
+  /** Your categories and themes, and which coins carry them (step 02b). */
+  tags?: {
+    tags: { id: string; kind: string; name: string }[];
+    coinTags: { coinKey: string; tagId: string }[];
+  };
 }
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -323,6 +356,31 @@ const chainOrder = (chainId: string) => {
   const i = CHAIN_KEYS.findIndex((k) => CHAINS[k].id === chainId);
   return i === -1 ? CHAIN_KEYS.length : i;
 };
+
+/** Categories and themes, indexed by coin; lists sorted by name for pickers. */
+function indexTags(input: HoldingsInput['tags']) {
+  const byId = new Map((input?.tags ?? []).map((t) => [t.id, t]));
+  const assigned = new Map<string, CoinTags>();
+  for (const ct of input?.coinTags ?? []) {
+    const tag = byId.get(ct.tagId);
+    if (!tag) continue;
+    const entry = assigned.get(ct.coinKey) ?? { category: null, themes: [] };
+    const ref = { id: tag.id, name: tag.name };
+    if (tag.kind === 'category') entry.category = ref;
+    else entry.themes.push(ref);
+    assigned.set(ct.coinKey, entry);
+  }
+  for (const entry of assigned.values()) entry.themes.sort((a, b) => a.name.localeCompare(b.name));
+  const sorted = (kind: string) =>
+    [...byId.values()]
+      .filter((t) => t.kind === kind)
+      .map((t) => ({ id: t.id, name: t.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    of: (coinKey: string): CoinTags => assigned.get(coinKey) ?? { category: null, themes: [] },
+    lists: { categories: sorted('category'), themes: sorted('theme') },
+  };
+}
 
 /** The coin an asset counts toward (ADR 0019); unknown assets are their own coin. */
 function coinOf(ref: string, symbol: string | null): AssetFields['underlying'] {
@@ -429,14 +487,18 @@ export function buildOverview(args: {
   unpricedCount: number;
   /** Coins worth less than this (USD) fold into the small-balances row. */
   smallBalanceUsd: string;
+  /** A coin's category and themes; none when absent. */
+  tagsOf?: (coinKey: string) => CoinTags;
 }): Overview {
+  const tagsOf = args.tagsOf ?? (() => ({ category: null, themes: [] }));
   const total = new Dec(args.totalUsd);
   const shareOf = (value: Dec) => (total.gt(0) ? ratio(value.div(total)) : '0');
   const row = (
-    r: Omit<AllocationRow, 'share' | 'valueUsd' | 'count' | 'parts'> & {
+    r: Omit<AllocationRow, 'share' | 'valueUsd' | 'count' | 'parts' | 'tags'> & {
       value: Dec;
       count?: number;
       parts?: AllocationPart[];
+      tags?: CoinTags;
     },
   ): AllocationRow => ({
     kind: r.kind,
@@ -448,6 +510,7 @@ export function buildOverview(args: {
     count: r.count ?? null,
     change24h: r.change24h,
     parts: r.parts ?? null,
+    tags: r.tags ?? null,
   });
   /** A single holding keeps its exact price-based %, not one rebuilt from rounded cents. */
   const changeOf = (holdings: Holding[]) => {
@@ -526,6 +589,7 @@ export function buildOverview(args: {
         detail: places(coin.holdings),
         value: coin.value,
         change24h: changeOf(coin.holdings),
+        tags: tagsOf(id),
         parts: coin.holdings.map((h) => ({
           assetId: h.assetId,
           label: h.symbol,
@@ -550,6 +614,50 @@ export function buildOverview(args: {
       }),
     );
   }
+
+  // By category and by theme (step 02b): every coin counts, small ones included.
+  const labelList = (symbols: (string | null)[]) => {
+    const names = symbols.map((x) => x ?? '?');
+    const shown = names.slice(0, 3).join(', ');
+    return names.length > 3 ? `${shown} +${names.length - 3}` : shown;
+  };
+  const group = (kind: 'category' | 'theme', keysOf: (coinKey: string) => TagRef[]) => {
+    const buckets = new Map<
+      string,
+      { tag: TagRef | null; coins: string[]; holdings: Holding[]; value: Dec }
+    >();
+    const byValue = [...coins].sort(([, a], [, b]) => b.value.comparedTo(a.value));
+    for (const [id, coin] of byValue) {
+      const tags = keysOf(id);
+      for (const tag of tags.length > 0 ? tags : [null]) {
+        const key = tag?.id ?? 'untagged';
+        const bucket = buckets.get(key) ?? { tag, coins: [], holdings: [], value: new Dec(0) };
+        bucket.coins.push(coin.symbol ?? '?');
+        bucket.holdings.push(...coin.holdings);
+        bucket.value = bucket.value.plus(coin.value);
+        buckets.set(key, bucket);
+      }
+    }
+    const rows = [...buckets].map(([key, b]) =>
+      row({
+        kind: b.tag ? kind : 'untagged',
+        key,
+        label: b.tag?.name ?? null,
+        detail: labelList(b.coins),
+        value: b.value,
+        change24h: summarizeChange(b.holdings),
+      }),
+    );
+    // The untagged row always comes last, whatever its size.
+    return rows.sort((a, b) =>
+      a.kind === 'untagged' ? 1 : b.kind === 'untagged' ? -1 : byLargest(a, b),
+    );
+  };
+  const byCategory = group('category', (id) => {
+    const category = tagsOf(id).category;
+    return category ? [category] : [];
+  });
+  const byTheme = group('theme', (id) => tagsOf(id).themes);
 
   const positionsOf = (w: WalletGroup) => w.chains.flatMap((c) => c.positions);
   const byWallet = args.includeWallets
@@ -598,6 +706,8 @@ export function buildOverview(args: {
     totalUsd: args.totalUsd,
     byAsset,
     byCoin,
+    byCategory,
+    byTheme,
     byWallet,
     byChain,
     concentration: {
@@ -639,6 +749,7 @@ function buildScopedView(
   const labelOf = (a: AccountRow) =>
     a.walletId ? (walletById.get(a.walletId)?.name ?? null) : a.label;
 
+  const tagIndex = indexTags(input.tags);
   const inScope = (a: AccountRow) =>
     walletId === null || a.walletId === walletId || (a.kind === 'venue' && a.id === walletId);
   const scopedAccounts = input.accounts.filter(inScope);
@@ -929,6 +1040,7 @@ function buildScopedView(
   return {
     asOf: now.toISOString(),
     scope: { walletId },
+    tags: tagIndex.lists,
     walletOptions: wallets.map((w) => ({
       kind: w.kind,
       walletId: w.walletId,
@@ -961,6 +1073,7 @@ function buildScopedView(
       includeWallets: walletId === null,
       unpricedCount: unpriced,
       smallBalanceUsd: config.smallBalanceUsd,
+      tagsOf: tagIndex.of,
     }),
     wallets,
     holdings,
@@ -986,10 +1099,12 @@ export async function getHoldings(
   options: { includeHidden?: boolean; walletId?: string | null } = {},
 ): Promise<HoldingsView> {
   const now = deps.now ? deps.now() : new Date();
-  const [balances, accounts, wallets] = await Promise.all([
+  const [balances, accounts, wallets, tags, coinTags] = await Promise.all([
     currentOwnedBalances(deps.db),
     listAccounts(deps.db),
     listWallets(deps.db),
+    listTags(deps.db),
+    listCoinTags(deps.db),
   ]);
   const owned = accounts.filter((a) => a.ownership === 'owned');
   const assetIds = [...new Set(balances.map((b) => b.assetId))];
@@ -1014,5 +1129,6 @@ export async function getHoldings(
     walletId: options.walletId ?? null,
     venuesEnabled: deps.venues,
     priceHistory,
+    tags: { tags, coinTags },
   });
 }

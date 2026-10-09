@@ -13,10 +13,12 @@ Design: [ADR 0002](../../docs/adr/0002-ledger-truth-and-reconciliation.md),
 - `holdings.ts`: `buildHoldingsView` (pure) and `getHoldings` (loads, then builds). This is the
   dashboard's "what do I own", for everything or one wallet or venue account (`walletId`). Venue
   accounts appear as groups with one section. It also builds the overview (`buildOverview`:
-  allocation by coin, exact asset, wallet, and chain; concentration by coin), flags small balances,
-  and measures 24h change against same-source baselines (`pickBaselines`, `summarizeChange`).
+  allocation by coin, exact asset, category, theme, wallet, and chain; concentration by coin), flags
+  small balances, and measures 24h change against same-source baselines (`pickBaselines`,
+  `summarizeChange`). Coin rows carry their category and themes (step 02b).
 - `assets.ts`: `setAssetStatus` (manual verified/unverified/spam, with history).
-- `wallets.ts`: `addWallet` (idempotent; every chain of the family by default) and `renameWallet`.
+- `wallets.ts`: `addWallet` (idempotent; every chain of the family by default), `renameWallet`, and
+  `removeWallet` (the wallet, its accounts, and their sync history; raw records stay).
 
 Done: balances and values for owned wallets (01); wallets, market data, and on-chain-first prices
 (01a); the overview: allocation, small balances, 24h change (01b); Coinbase balances and coin

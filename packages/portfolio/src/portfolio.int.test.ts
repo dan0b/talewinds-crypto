@@ -275,7 +275,7 @@ function deps(
     config: portfolioConfig(15),
     log: quietLog,
     sources: {
-      wallets: { robinhood: wallet, ethereum: unused, solana: unused },
+      wallets: { robinhood: wallet, ethereum: unused, solana: unused, bitcoin: unused },
       prices: fakePrices(),
       venueBalances: { coinbase, hyperliquid: null },
       venuePrices: fakeVenuePrices(),

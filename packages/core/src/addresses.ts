@@ -1,3 +1,4 @@
+import { base58Decode, bitcoinAddressType } from './bitcoin.ts';
 import type { ChainFamily } from './chains.ts';
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -9,7 +10,11 @@ export function isValidAddress(family: ChainFamily, address: string): boolean {
     case 'evm':
       return EVM_ADDRESS.test(address);
     case 'solana':
-      return SOLANA_ADDRESS.test(address);
+      // A Solana address is a 32-byte public key. Checking the decoded length also keeps Bitcoin's
+      // base58 addresses (25 bytes, same alphabet) from passing as Solana.
+      return SOLANA_ADDRESS.test(address) && base58Decode(address)?.length === 32;
+    case 'bitcoin':
+      return bitcoinAddressType(address) !== null;
   }
 }
 
@@ -23,5 +28,8 @@ export function normalizeAddress(family: ChainFamily, address: string): string {
   if (!isValidAddress(family, trimmed)) {
     throw new Error(`Invalid ${family} address: ${address}`);
   }
-  return family === 'evm' ? trimmed.toLowerCase() : trimmed;
+  if (family === 'evm') return trimmed.toLowerCase();
+  // Bech32 (bc1…) is case-insensitive and canonically lowercase; base58 is case-sensitive.
+  if (family === 'bitcoin' && /^bc1/i.test(trimmed)) return trimmed.toLowerCase();
+  return trimmed;
 }

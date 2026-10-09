@@ -1,7 +1,7 @@
 import { type NewWalletInput, normalizeWallet, WalletName } from '@talewinds/core';
 import { asc, eq } from 'drizzle-orm';
 import type { Db, Executor } from '../client.ts';
-import { wallets } from '../schema/index.ts';
+import { accounts, wallets } from '../schema/index.ts';
 import { type AccountRow, addAccount, ensureWallet, type WalletRow } from './accounts.ts';
 
 /**
@@ -47,4 +47,21 @@ export async function listWallets(db: Executor): Promise<WalletRow[]> {
 export async function findWalletById(db: Executor, id: string): Promise<WalletRow | null> {
   const [row] = await db.select().from(wallets).where(eq(wallets.id, id));
   return row ?? null;
+}
+
+/**
+ * Delete a wallet and everything that hangs off it: its per-chain accounts and, through the
+ * database's cascades, their sync runs and balance snapshots. Raw provider responses are immutable
+ * and stay; assets, prices, and tags are shared and stay. Throws `Unknown wallet …`.
+ */
+export async function removeWallet(
+  db: Db,
+  walletId: string,
+): Promise<{ wallet: WalletRow; accounts: number }> {
+  return db.transaction(async (tx) => {
+    const count = await tx.$count(accounts, eq(accounts.walletId, walletId));
+    const [row] = await tx.delete(wallets).where(eq(wallets.id, walletId)).returning();
+    if (!row) throw new Error(`Unknown wallet ${walletId}`);
+    return { wallet: row, accounts: count };
+  });
 }

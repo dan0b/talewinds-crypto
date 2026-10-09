@@ -2,6 +2,7 @@ import {
   type AccountRow,
   addWallet as addWalletRow,
   type Db,
+  removeWallet as removeWalletRow,
   renameWallet as renameWalletRow,
   type WalletRow,
 } from '@talewinds/db';
@@ -21,4 +22,15 @@ export async function addWallet(
 /** Name (or, with null/empty, un-name) a wallet. */
 export async function renameWallet(db: Db, walletId: string, name: unknown): Promise<WalletRow> {
   return renameWalletRow(db, walletId, name);
+}
+
+/**
+ * Remove a wallet, its accounts, and their sync history (step 02d). Raw records stay. Adding the
+ * address again starts it fresh.
+ */
+export async function removeWallet(
+  db: Db,
+  walletId: string,
+): Promise<{ wallet: WalletRow; accounts: number }> {
+  return removeWalletRow(db, walletId);
 }

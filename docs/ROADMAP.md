@@ -31,13 +31,15 @@ Dependencies in parentheses are soft: they help, but aren't required.
 | 01a | [Wallets, market data, and price accuracy](briefs/01a-wallets-and-market-data.md) | ✅ Done¹ | 01 | Add and name wallets in the dashboard; holdings by wallet → chain; market cap; on-chain-first prices |
 | 01b | [Portfolio overview: allocation, small balances, 24h change](briefs/01b-portfolio-overview.md) | ✅ Done | 01a | Allocation by asset, wallet, and chain (donut + table) for all wallets or one; concentration; 24h change; dust folded |
 | 02 | [Venue balances & positions: Hyperliquid, Coinbase](briefs/02-venue-balances.md) | ✅ Done² | 01 | Coinbase and Hyperliquid in every total; one coin across chains and venues |
-| 02a | [Bitcoin wallets](briefs/02a-bitcoin-wallets.md) | Ready | 01a, 02 | Xverse (all address types) synced; BTC grouped with WBTC |
-| 02b | [Categories and themes](briefs/02b-categories-and-themes.md) | Ready | 01b, 02 | Tag coins (one category, any themes); allocation by category and theme |
+| 02a | [Bitcoin wallets](briefs/02a-bitcoin-wallets.md) | ✅ Done² | 01a, 02 | Xverse (all address types) synced; BTC grouped with WBTC |
+| 02b | [Categories and themes](briefs/02b-categories-and-themes.md) | ✅ Done | 01b, 02 | Tag coins (one category, any themes); allocation by category and theme |
 | 02c | [Perp positions](briefs/02c-perp-positions.md) | Planned | 02 | Open Hyperliquid positions listed; built when you trade perps |
+| 02d | [Remove a wallet](briefs/02d-remove-a-wallet.md) | ✅ Done | 01a | Remove a wallet (and its history) from the dashboard or CLI |
 
 ¹ Robinhood Chain token balances awaited the network being enabled in Alchemy; enabled and
 verified 2026-10-08 (see the [02 build log](build-logs/2026-10-08-venue-balances.md)).
-² Still to confirm: Coinbase and Hyperliquid amounts against their own apps.
+² Still to confirm: Coinbase and Hyperliquid amounts against their own apps; your Xverse balances
+once the addresses are added.
 
 ### V0b — Contract address → research report
 
@@ -96,8 +98,7 @@ Build in number order by default. Where dependencies allow, tracks can interleav
 - In V1, the research steps (10–11) can run alongside the ledger steps (06–09).
 - The Jev evaluation harness (part of 25) can be pulled forward as soon as Jev access arrives.
 
-**Next up: 02a** (Bitcoin), then **02b** (categories and themes). Step 03 needs nothing and can
-follow.
+**Next up: 03** (quick research report: Solana). Step 02c waits until you trade perps.
 
 ## Vision coverage
 

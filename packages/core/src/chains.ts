@@ -12,7 +12,7 @@ export const ChainId = z
 export type ChainId = z.infer<typeof ChainId>;
 
 /** Chains group into families that share an address format and adapter. */
-export const CHAIN_FAMILIES = ['evm', 'solana'] as const;
+export const CHAIN_FAMILIES = ['evm', 'solana', 'bitcoin'] as const;
 export const ChainFamily = z.enum(CHAIN_FAMILIES);
 export type ChainFamily = z.infer<typeof ChainFamily>;
 
@@ -63,6 +63,16 @@ export const CHAINS = {
     nativeSymbol: 'SOL',
     nativeDecimals: 9,
     nativeSlip44: 501,
+  }),
+  bitcoin: chain({
+    key: 'bitcoin',
+    // CAIP-2 for Bitcoin uses the first 32 hex characters of the genesis block hash (BIP122).
+    id: 'bip122:000000000019d6689c085ae165831e93',
+    family: 'bitcoin',
+    name: 'Bitcoin',
+    nativeSymbol: 'BTC',
+    nativeDecimals: 8,
+    nativeSlip44: 0,
   }),
 } as const satisfies Record<string, ChainInfo>;
 

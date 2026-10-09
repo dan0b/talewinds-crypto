@@ -1,4 +1,5 @@
 import type { ChainKey, Venue } from '@talewinds/core';
+import { createBitcoinBalanceSource } from './chains/bitcoin/index.ts';
 import { createEvmBalanceSource, type EvmChainKey, type EvmClients } from './chains/evm/index.ts';
 import { createSolanaBalanceSource } from './chains/solana/index.ts';
 import { alchemyUrl, CHAIN_PROVIDERS } from './config.ts';
@@ -30,7 +31,7 @@ export { KeyPermissionError } from './venues/coinbase/index.ts';
 export interface SourceDescription {
   chain: ChainKey;
   rpc: 'custom' | 'public';
-  tokenDiscovery: 'blockscout' | 'alchemy' | 'solana-rpc' | 'unavailable';
+  tokenDiscovery: 'blockscout' | 'alchemy' | 'solana-rpc' | 'none' | 'unavailable';
 }
 
 export interface Sources {
@@ -66,13 +67,20 @@ export function createSources(env: SourcesEnv, options: SourcesOptions = {}): So
     env.SOLANA_RPC_URL,
     env.COINBASE_API_PRIVATE_KEY,
   ].filter((v): v is string => Boolean(v));
-  const client = (provider: string, baseUrl: string, minIntervalMs: number, timeoutMs?: number) =>
+  const client = (
+    provider: string,
+    baseUrl: string,
+    minIntervalMs: number,
+    timeoutMs?: number,
+    maxRetries?: number,
+  ) =>
     new ProviderClient({
       provider,
       baseUrl,
       minIntervalMs,
       redact: secrets,
       ...(timeoutMs ? { timeoutMs } : {}),
+      ...(maxRetries !== undefined ? { maxRetries } : {}),
       ...options,
     });
   const description: SourceDescription[] = [];
@@ -115,7 +123,28 @@ export function createSources(env: SourcesEnv, options: SourcesOptions = {}): So
   };
 
   const jupiter = client('jupiter', 'https://lite-api.jup.ag', 1100);
+  const btc = CHAIN_PROVIDERS.bitcoin;
   const wallets: Record<ChainKey, WalletBalanceSource> = {
+    // Bitcoin: Esplora, public and keyless (step 02a). With a fallback ready, the primary gets one
+    // retry, not three, so an outage costs seconds rather than most of a minute.
+    bitcoin: createBitcoinBalanceSource({
+      primary: client(
+        `esplora:${new URL(btc.publicRpcUrl).hostname}`,
+        btc.publicRpcUrl,
+        btc.publicRpcIntervalMs,
+        10_000,
+        btc.fallbackUrl ? 1 : undefined,
+      ),
+      ...(btc.fallbackUrl
+        ? {
+            fallback: client(
+              `esplora:${new URL(btc.fallbackUrl).hostname}`,
+              btc.fallbackUrl,
+              btc.publicRpcIntervalMs,
+            ),
+          }
+        : {}),
+    }),
     ethereum: evm('ethereum', env.ETHEREUM_RPC_URL),
     robinhood: evm('robinhood', env.ROBINHOOD_RPC_URL),
     solana: createSolanaBalanceSource({
@@ -134,6 +163,8 @@ export function createSources(env: SourcesEnv, options: SourcesOptions = {}): So
     rpc: env.SOLANA_RPC_URL ? 'custom' : 'public',
     tokenDiscovery: 'solana-rpc',
   });
+
+  description.push({ chain: 'bitcoin', rpc: 'public', tokenDiscovery: 'none' });
 
   const prices = createPriceSource({
     defillama: client('defillama', 'https://coins.llama.fi', 250),

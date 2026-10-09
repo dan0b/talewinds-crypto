@@ -1,10 +1,10 @@
 # 02b — Categories and themes
 
 - **Phase:** V0a — What do I own
-- **Status:** Ready
+- **Status:** ✅ Done
 - **Depends on:** [01b Portfolio overview](01b-portfolio-overview.md), [02](02-venue-balances.md) (coins)
 - **Written:** 2026-10-08
-- **Build log:** —
+- **Build log:** [`2026-10-08-categories-and-themes`](../build-logs/2026-10-08-categories-and-themes.md)
 
 ## Goal
 
@@ -51,13 +51,13 @@ of the narratives in [step 14](14-narratives-and-theses.md): tags now, theses an
 
 ## Acceptance criteria
 
-- [ ] Tagging a coin shows up immediately in the by-category and by-theme views, for all wallets and
+- [x] Tagging a coin shows up immediately in the by-category and by-theme views, for all wallets and
       a single wallet.
-- [ ] A coin can't end up with two categories.
-- [ ] By-category shares add up to 100% (Uncategorized included). By-theme rows are labeled as
+- [x] A coin can't end up with two categories.
+- [x] By-category shares add up to 100% (Uncategorized included). By-theme rows are labeled as
       overlapping.
-- [ ] Tags survive a restart, and renames keep assignments.
-- [ ] Unit tests for the views; integration tests for tag storage; API tests for validation.
+- [x] Tags survive a restart, and renames keep assignments.
+- [x] Unit tests for the views; integration tests for tag storage; API tests for validation.
 
 ## Open questions
 

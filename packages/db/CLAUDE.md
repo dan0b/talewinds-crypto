@@ -7,6 +7,9 @@ truth for everything ([ADR 0007](../../docs/adr/0007-postgres-single-source-of-t
 - `migrations/` — generated SQL migrations, reviewed and committed. `meta/` is drizzle-kit state.
 - `src/client.ts` — `createDatabase`, `runMigrations`, `pingDatabase`.
 - `src/repos/*.ts` — data-access functions (`addAccount`, `listAccounts`, `recordHeartbeat`, …).
+  `tags.ts` holds categories and themes (step 02b); the database itself allows one category per
+  coin (a partial unique index, plus a composite foreign key that keeps each assignment's kind
+  equal to its tag's).
 
 ## Rules
 

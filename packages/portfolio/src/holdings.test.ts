@@ -282,6 +282,82 @@ describe('overview', () => {
   });
 });
 
+describe('categories and themes (step 02b)', () => {
+  const tag = (id: string, kind: string, name: string) => ({ id, kind, name });
+  const tagged = () =>
+    input({
+      tags: {
+        tags: [
+          tag('t-major', 'category', 'Major'),
+          tag('t-spec', 'category', 'Speculative'),
+          tag('t-hooks', 'theme', 'V4 Hooks'),
+          tag('t-ai', 'theme', 'AI'),
+        ],
+        coinTags: [
+          // Test assets are outside the registry, so each coin is keyed by its own ref.
+          { coinKey: `${RH}/token:eth`, tagId: 't-major' },
+          { coinKey: `${SOL}/token:sol`, tagId: 't-major' },
+          { coinKey: `${SOL}/token:meme`, tagId: 't-spec' },
+          { coinKey: `${SOL}/token:meme`, tagId: 't-hooks' },
+          { coinKey: `${SOL}/token:meme`, tagId: 't-ai' },
+          { coinKey: `${RH}/token:eth`, tagId: 't-hooks' },
+        ],
+      },
+    });
+
+  it('shows each coin its category and themes', () => {
+    const { overview } = buildHoldingsView(tagged());
+    const meme = overview.byCoin.find((r) => r.label === 'MEME');
+    expect(meme?.tags).toEqual({
+      category: { id: 't-spec', name: 'Speculative' },
+      themes: [
+        { id: 't-ai', name: 'AI' },
+        { id: 't-hooks', name: 'V4 Hooks' },
+      ],
+    });
+  });
+
+  it('breaks the total down by category, uncategorized last, adding up to 100%', () => {
+    const { overview } = buildHoldingsView(tagged());
+    expect(overview.byCategory.map((r) => [r.kind, r.label, r.valueUsd, r.detail])).toEqual([
+      ['category', 'Major', '1300.00', 'ETH, SOL'],
+      ['category', 'Speculative', '100.00', 'MEME'],
+      ['untagged', null, '2.50', 'X, DUST'],
+    ]);
+    const sum = overview.byCategory.reduce((s, r) => s + Number(r.share), 0);
+    expect(sum).toBeCloseTo(1, 5);
+  });
+
+  it('counts a coin in every one of its themes, so theme shares can overlap', () => {
+    const { overview } = buildHoldingsView(tagged());
+    expect(overview.byTheme.map((r) => [r.kind, r.label, r.valueUsd])).toEqual([
+      ['theme', 'V4 Hooks', '1100.00'], // ETH + MEME
+      ['theme', 'AI', '100.00'],
+      ['untagged', null, '302.50'], // SOL, X, DUST
+    ]);
+    expect(overview.byTheme.reduce((s, r) => s + Number(r.share), 0)).toBeGreaterThan(1);
+    expect(buildHoldingsView(tagged()).tags).toEqual({
+      categories: [
+        { id: 't-major', name: 'Major' },
+        { id: 't-spec', name: 'Speculative' },
+      ],
+      themes: [
+        { id: 't-ai', name: 'AI' },
+        { id: 't-hooks', name: 'V4 Hooks' },
+      ],
+    });
+  });
+
+  it('follows the scope: one wallet only counts its own coins', () => {
+    const { overview } = buildHoldingsView({ ...tagged(), walletId: 'memes' });
+    expect(overview.byCategory.map((r) => [r.label, r.valueUsd])).toEqual([
+      ['Major', '300.00'],
+      ['Speculative', '100.00'],
+      [null, '0.50'],
+    ]);
+  });
+});
+
 describe('wallet scope', () => {
   it('limits totals, lists, and accounts to the chosen wallet', () => {
     const view = buildHoldingsView(input({ walletId: 'memes' }));

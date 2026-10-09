@@ -3,3 +3,4 @@ export * from './assets.ts';
 export * from './portfolio.ts';
 export * from './raw.ts';
 export * from './system.ts';
+export * from './tags.ts';

@@ -1,11 +1,21 @@
 import { serve } from '@hono/node-server';
 import { JOBS } from '@talewinds/core';
-import { latestHeartbeat, listAccounts, pingDatabase } from '@talewinds/db';
+import {
+  createTag,
+  deleteTag,
+  latestHeartbeat,
+  listAccounts,
+  pingDatabase,
+  renameTag,
+  setCoinCategory,
+  setCoinThemes,
+} from '@talewinds/db';
 import {
   addWallet,
   getHoldings,
   PortfolioEnv,
   portfolioConfigFromEnv,
+  removeWallet,
   renameWallet,
   setAssetStatus,
 } from '@talewinds/portfolio';
@@ -46,6 +56,21 @@ const app = createApp({
     const row = await renameWallet(db, id, name);
     return { walletId: row.id, name: row.name };
   },
+  removeWallet: async (id) => {
+    const { wallet, accounts } = await removeWallet(db, id);
+    return { walletId: wallet.id, name: wallet.name, accounts };
+  },
+  createTag: async (kind, name) => {
+    const t = await createTag(db, kind, name);
+    return { id: t.id, kind: t.kind, name: t.name };
+  },
+  renameTag: async (id, name) => {
+    const t = await renameTag(db, id, name);
+    return { id: t.id, kind: t.kind, name: t.name };
+  },
+  deleteTag: (id) => deleteTag(db, id),
+  setCoinCategory: (coinKey, tagId) => setCoinCategory(db, coinKey, tagId),
+  setCoinThemes: (coinKey, tagIds) => setCoinThemes(db, coinKey, tagIds),
   setAssetStatus: async (id, status, reason) => {
     const row = await setAssetStatus(db, id, status, reason);
     return { id: row.id, status: row.status, statusSource: row.statusSource };

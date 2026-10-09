@@ -11,6 +11,7 @@ const heartbeat = (ageMs: number): HeartbeatRow => ({
 });
 
 const WALLET_ID = '01a0e4bb-6c32-76e6-9590-ce717185caaa';
+const TAG_ID = '01a0e4bb-6c32-76e6-9590-ce717185cbbb';
 
 const noChange = { usd: '0.00', pct: null, coveredValueUsd: '0.00', uncoveredCount: 0 };
 
@@ -18,6 +19,7 @@ const emptyHoldings = {
   asOf: new Date(0).toISOString(),
   scope: { walletId: null },
   walletOptions: [],
+  tags: { categories: [], themes: [] },
   totals: {
     valueUsd: '0.00',
     lowConfidenceValueUsd: '0.00',
@@ -32,6 +34,8 @@ const emptyHoldings = {
     totalUsd: '0.00',
     byAsset: [],
     byCoin: [],
+    byCategory: [],
+    byTheme: [],
     byWallet: [],
     byChain: [],
     concentration: { largest: null, top3Share: null },
@@ -54,6 +58,12 @@ const deps = (overrides: Partial<ApiDeps> = {}): ApiDeps => ({
   describeSources: () => ({ sources: [], venues: { coinbase: false, hyperliquid: true } }),
   addWallet: async () => ({ walletId: WALLET_ID, created: true, accounts: 2 }),
   renameWallet: async (walletId, name) => ({ walletId, name }),
+  removeWallet: async (walletId) => ({ walletId, name: 'XVerse', accounts: 1 }),
+  createTag: async (kind, name) => ({ id: TAG_ID, kind, name }),
+  renameTag: async (id, name) => ({ id, kind: 'theme', name }),
+  deleteTag: async () => {},
+  setCoinCategory: async () => {},
+  setCoinThemes: async () => {},
   ...overrides,
 });
 
@@ -234,5 +244,110 @@ describe('wallet routes', () => {
     expect((await send(missing, 'PATCH', `/api/wallets/${WALLET_ID}`, { name: 'x' })).status).toBe(
       404,
     );
+  });
+});
+
+describe('categories and themes (step 02b)', () => {
+  const send = (app: ReturnType<typeof createApp>, method: string, path: string, body?: unknown) =>
+    app.request(path, {
+      method,
+      ...(body === undefined
+        ? {}
+        : { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } }),
+    });
+
+  it('creates tags, and turns a duplicate name into 409', async () => {
+    const created = await send(createApp(deps()), 'POST', '/api/tags', {
+      kind: 'category',
+      name: '  Major  ',
+    });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ tag: { id: TAG_ID, kind: 'category', name: 'Major' } });
+
+    const app = createApp(
+      deps({
+        createTag: async () => {
+          throw new Error('A category named "major" already exists');
+        },
+      }),
+    );
+    const dup = await send(app, 'POST', '/api/tags', { kind: 'category', name: 'major' });
+    expect(dup.status).toBe(409);
+    expect((await send(app, 'POST', '/api/tags', { kind: 'label', name: 'x' })).status).toBe(400);
+    expect((await send(app, 'POST', '/api/tags', { kind: 'theme', name: '   ' })).status).toBe(400);
+  });
+
+  it('renames and deletes by ID, with 404 for an unknown tag', async () => {
+    const missing = createApp(
+      deps({
+        renameTag: async () => {
+          throw new Error('Unknown tag x');
+        },
+        deleteTag: async () => {
+          throw new Error('Unknown tag x');
+        },
+      }),
+    );
+    expect((await send(missing, 'PATCH', `/api/tags/${TAG_ID}`, { name: 'AI' })).status).toBe(404);
+    expect((await send(missing, 'DELETE', `/api/tags/${TAG_ID}`)).status).toBe(404);
+    expect((await send(missing, 'DELETE', '/api/tags/nope')).status).toBe(400);
+    expect((await send(createApp(deps()), 'DELETE', `/api/tags/${TAG_ID}`)).status).toBe(200);
+  });
+
+  it('tags a coin by its key, and refuses tickers or a tag of the wrong kind', async () => {
+    let seen: unknown;
+    const app = createApp(
+      deps({
+        setCoinThemes: async (coinKey, tagIds) => {
+          seen = { coinKey, tagIds };
+        },
+        setCoinCategory: async () => {
+          throw new Error(`Unknown tag ${TAG_ID} (expected a category)`);
+        },
+      }),
+    );
+    const hookr = 'eip155:4663/erc20:0x18e674231a58c239dc7daedcffe15ec3a24cff5c';
+    const ok = await send(app, 'PUT', '/api/coin-tags/themes', {
+      coinKey: hookr,
+      tagIds: [TAG_ID],
+    });
+    expect(ok.status).toBe(200);
+    expect(seen).toEqual({ coinKey: hookr, tagIds: [TAG_ID] });
+
+    const ticker = await send(app, 'PUT', '/api/coin-tags/themes', {
+      coinKey: 'HOOKR',
+      tagIds: [],
+    });
+    expect(ticker.status).toBe(400);
+    const wrongKind = await send(app, 'PUT', '/api/coin-tags/category', {
+      coinKey: 'eth',
+      tagId: TAG_ID,
+    });
+    expect(wrongKind.status).toBe(400);
+    expect(await wrongKind.json()).toEqual({
+      error: `Unknown tag ${TAG_ID} (expected a category)`,
+    });
+  });
+});
+
+describe('DELETE /api/wallets/:id (step 02d)', () => {
+  it('removes a wallet, with 404 for an unknown one and 400 for a malformed ID', async () => {
+    const ok = await createApp(deps()).request(`/api/wallets/${WALLET_ID}`, { method: 'DELETE' });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({
+      removed: { walletId: WALLET_ID, name: 'XVerse', accounts: 1 },
+    });
+
+    const missing = createApp(
+      deps({
+        removeWallet: async (id) => {
+          throw new Error(`Unknown wallet ${id}`);
+        },
+      }),
+    );
+    expect((await missing.request(`/api/wallets/${WALLET_ID}`, { method: 'DELETE' })).status).toBe(
+      404,
+    );
+    expect((await missing.request('/api/wallets/nope', { method: 'DELETE' })).status).toBe(400);
   });
 });

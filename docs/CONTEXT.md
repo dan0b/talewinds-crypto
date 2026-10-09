@@ -24,7 +24,8 @@ meanings. When a new term is introduced, add it here.
   chain adapter); a venue account is an exchange/app account read via its API (Coinbase,
   Hyperliquid).
 - **Chain family** — chains sharing an address format and adapter: `evm` (Ethereum, Robinhood
-  Chain) and `solana`.
+  Chain), `solana`, and `bitcoin` (one address per wallet, any standard type: `1…`, `3…`, `bc1q…`,
+  `bc1p…`).
 - **Venue asset** — a holding at a venue, identified within that venue only:
   `venue:coinbase/currency:ETH` (asset kind `venue`). See [ADR 0018](adr/0018-venue-assets.md).
 - **View-only key** — a venue API key that can read but not trade or transfer. It's the one key
@@ -78,6 +79,13 @@ meanings. When a new term is introduced, add it here.
 - **Allocation** — each coin's (every form of it, wherever it's held), wallet's, or chain's or
   venue's share of the scope's priced total.
 - **Concentration** — the share of the total in the largest coin, and in the top three.
+- **Category** — your label for a coin's role, at most one per coin (e.g. Major, Speculative,
+  Stable). The by-category view adds up to 100%, and coins without one are "Uncategorized".
+- **Theme** — your label for what a coin is a bet on, any number per coin (e.g. V4 Hooks). A coin
+  counts in each of its themes, so theme shares can add up to more than 100%. A lightweight
+  precursor of narratives (step 14).
+- **Coin key** — how a coin is identified for tags and groupings: a registry ID (`eth`) or, for a
+  coin outside the registry, its asset ID. Never a ticker.
 - **24h change** — how current holdings moved in value over 24 hours: the price now against the
   **baseline price**, our own recorded price from the same source about 24 hours earlier. A price
   move, not P&L: deposits, withdrawals, and trades don't count.

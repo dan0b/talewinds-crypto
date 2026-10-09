@@ -5,6 +5,7 @@ export * from './repos/assets.ts';
 export * from './repos/portfolio.ts';
 export * from './repos/raw.ts';
 export * from './repos/system.ts';
+export * from './repos/tags.ts';
 export * from './repos/wallets.ts';
 export type { SyncNote } from './schema/index.ts';
 export * as schema from './schema/index.ts';
