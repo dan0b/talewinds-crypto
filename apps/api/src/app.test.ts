@@ -1,4 +1,5 @@
 import type { HeartbeatRow } from '@talewinds/db';
+import type { HistoryRange, ValueHistory } from '@talewinds/portfolio';
 import { describe, expect, it } from 'vitest';
 import { type ApiDeps, createApp, WORKER_STALE_AFTER_MS } from './app.ts';
 
@@ -32,6 +33,7 @@ const emptyHoldings = {
   small: { count: 0, valueUsd: '0.00', thresholdUsd: '3' },
   overview: {
     totalUsd: '0.00',
+    otherBelowShare: '0.001',
     byAsset: [],
     byCoin: [],
     byCategory: [],
@@ -48,11 +50,31 @@ const emptyHoldings = {
   quality: { staleAccounts: 0, failedAccounts: 0, partialAccounts: 0, neverSynced: 0 },
 };
 
+const emptyHistory = (range: HistoryRange, walletId: string | null): ValueHistory => ({
+  range,
+  scope: { walletId },
+  from: new Date(0).toISOString(),
+  to: new Date(0).toISOString(),
+  trackedSince: null,
+  stepMinutes: 15,
+  points: [],
+  additions: [],
+  summary: {
+    startUsd: null,
+    endUsd: null,
+    highUsd: null,
+    lowUsd: null,
+    changeUsd: null,
+    changePct: null,
+  },
+});
+
 const deps = (overrides: Partial<ApiDeps> = {}): ApiDeps => ({
   pingDatabase: async () => 3,
   latestHeartbeat: async () => heartbeat(1_000),
   listAccounts: async () => [],
   getHoldings: async () => emptyHoldings,
+  getValueHistory: async ({ range, walletId }) => emptyHistory(range, walletId),
   requestSync: async () => ({ queued: true }),
   setAssetStatus: async (id, status) => ({ id, status, statusSource: 'manual' }),
   describeSources: () => ({ sources: [], venues: { coinbase: false, hyperliquid: true } }),
@@ -154,6 +176,47 @@ describe('portfolio routes', () => {
     const res = await createApp(deps()).request('/api/portfolio/sync', { method: 'POST' });
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({ queued: true });
+  });
+});
+
+describe('GET /api/portfolio/history (step 02f)', () => {
+  const recording = () => {
+    const seen: { range: HistoryRange; walletId: string | null }[] = [];
+    const app = createApp(
+      deps({
+        getValueHistory: async (o) => {
+          seen.push(o);
+          if (o.walletId && o.walletId !== WALLET_ID)
+            throw new Error(`Unknown wallet ${o.walletId}`);
+          return emptyHistory(o.range, o.walletId);
+        },
+      }),
+    );
+    return { app, seen };
+  };
+
+  it('passes the range and wallet through, defaulting to one week for all wallets', async () => {
+    const { app, seen } = recording();
+    const res = await app.request(`/api/portfolio/history?range=1d&wallet=${WALLET_ID}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ range: '1d', scope: { walletId: WALLET_ID } });
+    await app.request('/api/portfolio/history');
+    expect(seen).toEqual([
+      { range: '1d', walletId: WALLET_ID },
+      { range: '1w', walletId: null },
+    ]);
+  });
+
+  it('rejects an unknown range or a malformed wallet ID, and 404s an unknown wallet', async () => {
+    const { app, seen } = recording();
+    expect((await app.request('/api/portfolio/history?range=2y')).status).toBe(400);
+    expect((await app.request('/api/portfolio/history?wallet=nope')).status).toBe(400);
+    expect(seen).toEqual([]);
+    const missing = await app.request(
+      '/api/portfolio/history?range=all&wallet=01a0e4bb-6c32-76e6-9590-ce717185cfff',
+    );
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'wallet not found' });
   });
 });
 

@@ -108,3 +108,24 @@ export function direction(value: string, decimals = 2): 'up' | 'down' | 'flat' {
 export function shareFraction(share: string): number {
   return Math.min(1, Math.max(0, Number(new Dec(share).toFixed(6))));
 }
+
+/**
+ * A USD amount as a plain number, **for chart geometry only** (a point's height on an axis). The
+ * value itself stays a decimal string: format it with `formatUsd`, never from this number.
+ */
+export function chartNumber(value: string): number {
+  return Number(new Dec(value).toFixed(2));
+}
+
+/**
+ * An axis tick (a round number the chart chose, not a value from the data): "$0", "$500",
+ * "$40K", "$40.5K", "$1.25M". Float noise from the tick arithmetic is dropped first.
+ */
+export function formatTickUsd(tick: number): string {
+  const d = new Dec(String(Number(tick.toPrecision(12))));
+  const sign = d.isNegative() ? '−' : '';
+  for (const [unit, suffix] of COMPACT) {
+    if (d.abs().gte(unit)) return `${sign}$${trimZeros(d.abs().div(unit).toFixed(2))}${suffix}`;
+  }
+  return d.isInteger() ? `${sign}$${d.abs().toFixed(0)}` : formatUsd(d.toFixed(2));
+}

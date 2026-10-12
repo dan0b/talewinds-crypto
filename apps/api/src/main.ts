@@ -13,6 +13,7 @@ import {
 import {
   addWallet,
   getHoldings,
+  getValueHistory,
   PortfolioEnv,
   portfolioConfigFromEnv,
   removeWallet,
@@ -45,6 +46,7 @@ const app = createApp({
   latestHeartbeat: () => latestHeartbeat(db),
   listAccounts: () => listAccounts(db),
   getHoldings: (options) => getHoldings({ db, config, venues: configured.venues }, options),
+  getValueHistory: (options) => getValueHistory({ db, config }, options),
   requestSync: async () => ({ queued: (await queue.send(JOBS.portfolioSyncAll, {})) !== null }),
   describeSources: () => sourcesDescription,
   addWallet: async (input) => {

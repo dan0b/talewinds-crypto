@@ -18,6 +18,11 @@ export interface PortfolioConfig {
    * "Small balances" line. Display only: they still count in every total.
    */
   smallBalanceUsd: string;
+  /**
+   * In allocation charts, rows worth less than this share of their chart fold into one "Other"
+   * row, which opens to list them (a decimal string: "0.001" is 0.1%). Display only.
+   */
+  allocationOtherBelowShare: string;
   /** How far a 24h baseline price may sit from the 24-hour mark and still be used. */
   baselineToleranceMs: number;
 }
@@ -36,6 +41,7 @@ export function portfolioConfig(
     priceMissCooldownMs: 24 * 60 * MINUTE,
     illiquidShareOfPool: 0.1,
     smallBalanceUsd: options.smallBalanceUsd ?? '3',
+    allocationOtherBelowShare: '0.001',
     baselineToleranceMs: 90 * MINUTE,
   };
 }

@@ -35,6 +35,8 @@ Dependencies in parentheses are soft: they help, but aren't required.
 | 02b | [Categories and themes](briefs/02b-categories-and-themes.md) | ✅ Done | 01b, 02 | Tag coins (one category, any themes); allocation by category and theme |
 | 02c | [Perp positions](briefs/02c-perp-positions.md) | Planned | 02 | Open Hyperliquid positions listed; built when you trade perps |
 | 02d | [Remove a wallet](briefs/02d-remove-a-wallet.md) | ✅ Done | 01a | Remove a wallet (and its history) from the dashboard or CLI |
+| 02e | [Allocation drill-down and a tidier portfolio page](briefs/02e-allocation-drill-down.md) | ✅ Done | 01b, 02b | Every coin in the donut; click any slice to see inside; collapsible wallets; hideable notices |
+| 02f | [Portfolio value over time](briefs/02f-value-over-time.md) | ✅ Done | 01b, 02 | A chart of the total over 1D/1W/1M/All, rebuilt from stored syncs and prices |
 
 ¹ Robinhood Chain token balances awaited the network being enabled in Alchemy; enabled and
 verified 2026-10-08 (see the [02 build log](build-logs/2026-10-08-venue-balances.md)).
@@ -56,7 +58,7 @@ once the addresses are added.
 | 06 | [Ledger foundation: venue fills](briefs/06-ledger-foundation.md) | Planned | 02 | Events, lots, cost basis, P&L, proven on clean venue data |
 | 07 | [On-chain trade decoding](briefs/07-onchain-trade-decoding.md) | Planned | 01, 06 | Your Solana and Robinhood Chain swaps as priced trades |
 | 08 | [Transfers, bridges & reconciliation](briefs/08-transfers-bridges-reconciliation.md) | Planned | 06, 07 | Moves between your accounts keep cost basis; every account reconciles |
-| 09 | [Risk & performance dashboard](briefs/09-risk-and-performance-dashboard.md) | Planned | 06–08 | Exposure, concentration, P&L over time, what changed |
+| 09 | [Risk & performance dashboard](briefs/09-risk-and-performance-dashboard.md) | Planned | 06–08 (02f) | Exposure, concentration, P&L over time, what changed |
 | 10 | [Robinhood Chain research](briefs/10-robinhood-chain-research.md) | Planned | 03–05 | EVM security checks and insider analysis |
 | 11 | [Fundamentals research](briefs/11-fundamentals-research.md) | Planned | 05 (10) | Team, product, tokenomics, traction; claims vs facts |
 

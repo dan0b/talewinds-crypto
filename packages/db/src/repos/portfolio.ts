@@ -1,5 +1,21 @@
 import type { PriceConfidence } from '@talewinds/core';
-import { and, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  min,
+  ne,
+  or,
+  type SQL,
+  type SQLWrapper,
+  sql,
+} from 'drizzle-orm';
 import type { Executor } from '../client.ts';
 import {
   accounts,
@@ -308,4 +324,154 @@ export async function recentSyncRuns(db: Executor, since: Date) {
     .from(syncRuns)
     .where(gt(syncRuns.startedAt, since))
     .orderBy(desc(syncRuns.startedAt));
+}
+
+// --- Value history (step 02f): only what a chart's grid needs, not every run and price ---
+
+/** A usable run as value history reads it. `finishedAt` is when its balances became known. */
+export interface UsableRun {
+  id: string;
+  accountId: string;
+  /** `succeeded`, or `partial`: it couldn't see every balance (its notes say what). */
+  status: string;
+  startedAt: Date;
+  finishedAt: Date;
+}
+
+/** One balance a run recorded, with its asset's decimals and current status. */
+export interface RunSnapshot {
+  syncRunId: string;
+  accountId: string;
+  assetId: string;
+  rawAmount: string;
+  decimals: number;
+  status: string;
+}
+
+/** When a run's balances became known (a usable run always has `finished_at`). */
+const runKnownAt = () =>
+  sql<Date>`coalesce(${syncRuns.finishedAt}, ${syncRuns.startedAt})`.mapWith(syncRuns.finishedAt);
+
+/**
+ * The `stepMs`-wide step a timestamp falls in, counted from the Unix epoch (UTC). The stride is
+ * written into the SQL rather than bound: DISTINCT ON and ORDER BY must repeat the same
+ * expression, and two bound parameters never compare equal.
+ */
+function stepOf(timestamp: SQLWrapper, stepMs: number): SQL {
+  if (!Number.isSafeInteger(stepMs) || stepMs <= 0) throw new Error(`Invalid step: ${stepMs} ms`);
+  return sql`date_bin(${sql.raw(`'${stepMs} milliseconds'::interval`)}, ${timestamp}, ${sql.raw(`timestamptz '1970-01-01 00:00:00+00'`)})`;
+}
+
+/**
+ * Per account: its newest usable run (by start) in each `stepMs` step of (from, to], by when the
+ * run finished, plus its newest usable run finished by `from`.
+ */
+export async function usableRunsPerStep(
+  db: Executor,
+  accountIds: string[],
+  from: Date,
+  to: Date,
+  stepMs: number,
+): Promise<UsableRun[]> {
+  const fields = () => ({
+    id: syncRuns.id,
+    accountId: syncRuns.accountId,
+    status: syncRuns.status,
+    startedAt: syncRuns.startedAt,
+    finishedAt: runKnownAt(),
+  });
+  const knownBy = (t: Date) => sql`${runKnownAt()} <= ${t.toISOString()}::timestamptz`;
+  const out: UsableRun[] = [];
+  for (const batch of chunk(accountIds, 1000)) {
+    const usable = () => and(inArray(syncRuns.accountId, batch), inArray(syncRuns.status, USABLE));
+    const before = await db
+      .selectDistinctOn([syncRuns.accountId], fields())
+      .from(syncRuns)
+      .where(and(usable(), knownBy(from)))
+      .orderBy(syncRuns.accountId, desc(syncRuns.startedAt));
+    const step = stepOf(runKnownAt(), stepMs);
+    const within = await db
+      .selectDistinctOn([syncRuns.accountId, step], fields())
+      .from(syncRuns)
+      .where(and(usable(), sql`${runKnownAt()} > ${from.toISOString()}::timestamptz`, knownBy(to)))
+      .orderBy(syncRuns.accountId, step, desc(syncRuns.startedAt));
+    out.push(...before, ...within);
+  }
+  return out;
+}
+
+/** The balances these runs recorded, with each asset's decimals and current status. */
+export async function snapshotsOfRuns(db: Executor, runIds: string[]): Promise<RunSnapshot[]> {
+  const out: RunSnapshot[] = [];
+  for (const batch of chunk([...new Set(runIds)], 1000)) {
+    const rows = await db
+      .select({
+        syncRunId: balanceSnapshots.syncRunId,
+        accountId: balanceSnapshots.accountId,
+        assetId: balanceSnapshots.assetId,
+        rawAmount: balanceSnapshots.rawAmount,
+        decimals: assets.decimals,
+        status: assets.status,
+      })
+      .from(balanceSnapshots)
+      .innerJoin(assets, eq(balanceSnapshots.assetId, assets.id))
+      .where(inArray(balanceSnapshots.syncRunId, batch));
+    out.push(...rows);
+  }
+  return out;
+}
+
+/**
+ * Per asset: its newest price (by `pricedAt`) in each `stepMs` step after `from`, plus its newest
+ * at or before `from`. Deliberately not capped at "now": a price stamped slightly ahead of our
+ * clock is still the latest one, as `latestPrices` treats it.
+ */
+export async function pricesPerStep(
+  db: Executor,
+  assetIds: string[],
+  from: Date,
+  stepMs: number,
+): Promise<PriceObservationPoint[]> {
+  const fields = {
+    assetId: priceObservations.assetId,
+    priceUsd: priceObservations.priceUsd,
+    source: priceObservations.source,
+    pricedAt: priceObservations.pricedAt,
+  };
+  const out: PriceObservationPoint[] = [];
+  for (const batch of chunk(assetIds, 1000)) {
+    const before = await db
+      .selectDistinctOn([priceObservations.assetId], fields)
+      .from(priceObservations)
+      .where(and(inArray(priceObservations.assetId, batch), lte(priceObservations.pricedAt, from)))
+      .orderBy(priceObservations.assetId, desc(priceObservations.pricedAt));
+    const step = stepOf(priceObservations.pricedAt, stepMs);
+    const after = await db
+      .selectDistinctOn([priceObservations.assetId, step], fields)
+      .from(priceObservations)
+      .where(and(inArray(priceObservations.assetId, batch), gt(priceObservations.pricedAt, from)))
+      .orderBy(priceObservations.assetId, step, desc(priceObservations.pricedAt));
+    out.push(...before, ...after);
+  }
+  return out;
+}
+
+/** When each account's first usable run finished. Accounts without one are left out. */
+export async function firstUsableRunAt(
+  db: Executor,
+  accountIds: string[],
+): Promise<Map<string, Date>> {
+  const out = new Map<string, Date>();
+  for (const batch of chunk(accountIds, 1000)) {
+    const rows = await db
+      .select({
+        accountId: syncRuns.accountId,
+        at: min(runKnownAt()).mapWith(syncRuns.finishedAt),
+      })
+      .from(syncRuns)
+      .where(and(inArray(syncRuns.accountId, batch), inArray(syncRuns.status, USABLE)))
+      .groupBy(syncRuns.accountId);
+    for (const r of rows) if (r.at) out.set(r.accountId, r.at);
+  }
+  return out;
 }

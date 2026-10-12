@@ -6,12 +6,16 @@ A Vite + React single-page app that talks only to the API.
 - `src/router.tsx` — layout, nav, and route tree (TanStack Router, code-based).
 - `src/routes/*.tsx` — one file per page.
 - `src/components/portfolio/` — the Portfolio page's parts: `Overview` (stat tiles and the
-  allocation card), `WalletGroups` (wallet → chain, the default), `HoldingsTable` (by asset),
-  `AddWallet`, shared table `cells`, `SyncBadge`, `Tags` (the coin tag editor and tag manager).
-  Venue accounts (Coinbase) render as a wallet-style
-  card with one section. The page's scope (all, one wallet, or one venue account) lives in the URL:
-  `/?wallet=<id>`.
-- `src/components/charts/` — charts (`Donut`). Inline SVG, no chart library.
+  allocation card, whose slices and rows open into their `breakdown` with Back and a breadcrumb),
+  `ValueHistory` (value over time, step 02f), `WalletGroups` (wallet → chain, the default; cards
+  collapse to their header), `HoldingsTable` (by asset), `AddWallet`, shared table `cells`,
+  `SyncBadge`, `Tags` (the coin tag editor and tag manager). Venue accounts (Coinbase) render as a
+  wallet-style card with one section. The page's scope (all, one wallet, or one venue account) lives
+  in the URL: `/?wallet=<id>`.
+- `src/components/charts/` — charts: `Donut` and `TimeSeries` (a single-series line with gaps,
+  dashed uncertain stretches, event markers, and a crosshair). Inline SVG, no chart library.
+- `src/lib/storage.ts` — per-browser conveniences (collapsed wallets, hidden notices, the chart's
+  range), with guarded reads and writes.
 - `src/lib/api.ts` — the typed API client (`hc<AppType>`). Route paths and response types come from
   `apps/api`, with no hand-written types.
 - `src/components/` — shared UI. `src/styles.css` — Tailwind + design tokens.
@@ -36,12 +40,21 @@ A Vite + React single-page app that talks only to the API.
 - **Make staleness and incompleteness visible.** Show data age, and flag `unclassified`/incomplete
   numbers rather than hiding them ([ADR 0002](../../docs/adr/0002-ledger-truth-and-reconciliation.md)).
 - **Amounts arrive as strings.** Format them for display; never `parseFloat` them for math.
-- **Charts:** turn a share into a number only through `shareFraction` (lib/format), and only for
-  geometry (angles, bar widths). Colors come from the `--color-series-*` variables in `styles.css`,
-  assigned **by rank within each chart** (largest = series 1), at most five plus `series-other`:
-  the palette passes the color-blind checks only as neighbors in that order. Every chart has a
-  table beside it with every value (the legend, and the keyboard/screen-reader view). Follow the
-  `dataviz` skill for anything new.
+- **Charts:** turn a share into a number only through `shareFraction`, and a USD value only through
+  `chartNumber` (lib/format), and only for geometry (angles, heights, bar widths). Colors come from
+  the `--color-series-*` variables in `styles.css`, assigned **by rank within each chart** (largest
+  = series 1), at most eight plus `series-other`: the palette passes the color-blind checks only as
+  neighbors in that order. A donut's last slice touches its first, and series 7 fails next to 1, so
+  a donut never ends on series 7 (`colorsOf` grays it). Every chart has a table with every value
+  (beside a donut; a "Show table" view for a time series): the legend, and the keyboard and
+  screen-reader view. Follow the `dataviz` skill for anything new.
+- **Allocation rows arrive folded and nested** (`breakdown`, the Other row) from the server; the
+  page draws them and never folds, sums, or re-shares them itself.
+- **Browser storage only for per-viewer conveniences** (`lib/storage.ts`): collapsed cards, hidden
+  notices, a chosen range. Never for data that matters; the page must work the same without it.
+  Check stored values on read.
+- **Scroll wrappers (`overflow-x-auto`) are `relative`**, so absolutely positioned children (the
+  `sr-only` header labels) stay inside them instead of widening the page on a phone.
 - Shared UI primitives live in `src/components/ui.tsx` (Badge, Button, Stat, Notice, Card, Segmented), built
   with plain Tailwind. shadcn/ui ([ADR 0006](../../docs/adr/0006-application-stack.md)) gets added
   when a component needs Radix-level behavior (menus, dialogs, popovers). Step 01 didn't need any.

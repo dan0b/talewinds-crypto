@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 export function PageHeader({
   title,
@@ -31,7 +31,7 @@ export function Card({
 }) {
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-muted">{title}</h2>
         {aside}
       </div>
@@ -78,7 +78,8 @@ export function Badge({
   );
 }
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' };
+/** A button's own props, `ref` included (React 19 passes it as a prop). */
+type ButtonProps = ComponentProps<'button'> & { variant?: 'primary' | 'ghost' };
 
 export function Button({ variant = 'ghost', className = '', ...props }: ButtonProps) {
   const look =
@@ -128,10 +129,13 @@ export function Notice({
   tone = 'neutral',
   children,
   action,
+  onDismiss,
 }: {
   tone?: 'neutral' | 'warn' | 'bad';
   children: ReactNode;
   action?: ReactNode;
+  /** Shows a hide button. */
+  onDismiss?: () => void;
 }) {
   return (
     <div
@@ -145,7 +149,22 @@ export function Notice({
         />
         <div>{children}</div>
       </div>
-      {action}
+      {(action || onDismiss) && (
+        <div className="flex shrink-0 items-start gap-1">
+          {action}
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="Hide this notice"
+              title="Hide"
+              className="rounded px-1.5 text-base leading-6 text-muted hover:text-fg"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

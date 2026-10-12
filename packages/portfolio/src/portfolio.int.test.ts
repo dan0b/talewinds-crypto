@@ -582,9 +582,15 @@ describe('venues (step 02)', () => {
     // One ETH across the wallet and Coinbase (ADR 0019), with each holding visible.
     const ethCoin = view.overview.byCoin.find((r) => r.key === 'eth');
     expect(ethCoin).toMatchObject({ valueUsd: '3700.00', detail: 'Robinhood Chain, Coinbase' });
-    expect(ethCoin?.parts?.map((x) => [x.detail, x.valueUsd])).toEqual([
-      ['Robinhood Chain', '2000.00'],
-      ['Coinbase', '1700.00'],
+    expect(ethCoin?.breakdown?.map((x) => [x.kind, x.detail, x.valueUsd])).toEqual([
+      ['holding', 'Robinhood Chain', '2000.00'],
+      ['holding', 'Coinbase', '1700.00'],
+    ]);
+    // Coinbase opens to the coins it holds.
+    const coinbaseRow = view.overview.byWallet.find((r) => r.label === 'Coinbase');
+    expect(coinbaseRow?.breakdown?.map((x) => [x.label, x.valueUsd, x.share])).toEqual([
+      ['ETH', '1700.00', '0.933809'],
+      ['USD', '120.50', '0.066191'],
     ]);
     expect(view.overview.byCoin.find((r) => r.key === 'usd')?.valueUsd).toBe('120.50');
 

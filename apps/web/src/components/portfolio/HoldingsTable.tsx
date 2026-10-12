@@ -93,7 +93,7 @@ export function HoldingsTable({
   };
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
         {/* Only small balances here: the folded row stands alone, without column headers. */}
         {listed.length > 0 && (

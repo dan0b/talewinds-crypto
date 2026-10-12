@@ -37,6 +37,10 @@ truth for everything ([ADR 0007](../../docs/adr/0007-postgres-single-source-of-t
   (`pg_dump` → scratch database → `DATABASE_URL=… pnpm tw db migrate` → inspect → drop), and keep
   the dump until the real migration is verified. Migration `0004` (wallet backfill) was done this
   way.
+- **History queries load per grid step, not every row** (`usableRunsPerStep`, `pricesPerStep`):
+  `DISTINCT ON (key, date_bin(step, ts, epoch))` keeps the newest per step. Write the stride into the
+  SQL text (after checking it's a positive integer), because `DISTINCT ON` and `ORDER BY` must repeat
+  the same expression and two bound parameters never compare equal.
 - **Surface database errors with `describeError`.** Drizzle's "Failed query: …" messages contain the
   whole SQL and its parameters (tens of KB of stored data); never log or show them raw.
 - **Append-only history** where beliefs change (narratives, reports, strategy versions). Revise by

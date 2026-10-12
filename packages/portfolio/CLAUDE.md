@@ -13,17 +13,23 @@ Design: [ADR 0002](../../docs/adr/0002-ledger-truth-and-reconciliation.md),
 - `holdings.ts`: `buildHoldingsView` (pure) and `getHoldings` (loads, then builds). This is the
   dashboard's "what do I own", for everything or one wallet or venue account (`walletId`). Venue
   accounts appear as groups with one section. It also builds the overview (`buildOverview`:
-  allocation by coin, exact asset, category, theme, wallet, and chain; concentration by coin), flags
-  small balances, and measures 24h change against same-source baselines (`pickBaselines`,
-  `summarizeChange`). Coin rows carry their category and themes (step 02b).
+  allocation by coin, exact asset, category, theme combination, wallet, and chain; concentration by
+  coin), flags small balances, and measures 24h change against same-source baselines
+  (`pickBaselines`, `summarizeChange`). Coin rows carry their category and themes (step 02b). Every
+  allocation row carries its `breakdown` (rows under `allocationOtherBelowShare` fold into an Other
+  row), so any slice can be opened (step 02e).
+- `history.ts`: `buildValueHistory` (pure) and `getValueHistory`: the scope's value over time,
+  replayed from stored balance snapshots and prices on a grid (step 02f, ADR 0021), with gaps,
+  incomplete points, and added wallets marked. Its final point equals the holdings total.
 - `assets.ts`: `setAssetStatus` (manual verified/unverified/spam, with history).
 - `wallets.ts`: `addWallet` (idempotent; every chain of the family by default), `renameWallet`, and
   `removeWallet` (the wallet, its accounts, and their sync history; raw records stay).
 
 Done: balances and values for owned wallets (01); wallets, market data, and on-chain-first prices
-(01a); the overview: allocation, small balances, 24h change (01b); Coinbase balances and coin
-grouping (02, in progress). Next: Hyperliquid and positions (02), then events, lots, cost basis,
-P&L, and reconciliation (06–09).
+(01a); the overview (01b); Coinbase, Hyperliquid, and coin grouping (02); Bitcoin (02a); categories
+and themes (02b); removing a wallet (02d); allocation breakdowns (02e); value over time (02f).
+Next: perp positions (02c, when you trade perps), then events, lots, cost basis, P&L, and
+reconciliation (06–09).
 
 ## Rules
 
@@ -47,8 +53,12 @@ P&L, and reconciliation (06–09).
   only copy of the truth.
 - **Exact math only** (`RawAmount`/`Dec`). The view emits decimal strings; never floats.
 - **Keep `buildHoldingsView` pure** so its logic can be tested without a database.
-- **Small balances are display only.** A holding under `smallBalanceUsd` is flagged and folded in
-  lists, but it stays in every total and share.
+- **Folding is display only.** A holding under `smallBalanceUsd` is flagged and folded in lists,
+  and allocation rows under `allocationOtherBelowShare` fold into Other, but both stay in every
+  total and share.
+- **Value history is replayed, never stored** ([ADR 0021](../../docs/adr/0021-value-history-replayed.md)):
+  compute it from balance snapshots and prices with today's verification, mark gaps, partial syncs,
+  and added wallets, and keep its last point equal to the holdings total.
 - **24h change is a price move, not P&L.** It compares today's quantity at today's price with the
   same source's recorded price from ~24h earlier (within `baselineToleranceMs`). No baseline means
   no change ("—"), never a guess from another source.

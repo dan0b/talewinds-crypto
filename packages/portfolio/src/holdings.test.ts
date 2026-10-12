@@ -258,20 +258,91 @@ describe('overview', () => {
       valueUsd: '1602.00',
       detail: 'Robinhood Chain, Ethereum',
     });
-    expect(eth?.parts?.map((p) => [p.label, p.detail, p.valueUsd])).toEqual([
-      ['ETH', 'Robinhood Chain', '1000.00'],
-      ['WETH', 'Ethereum · wrapped', '402.00'],
-      ['ETH', 'Ethereum', '200.00'],
+    // It opens to its holdings, with shares of the coin and of the total.
+    expect(
+      eth?.breakdown?.map((p) => [p.kind, p.label, p.detail, p.valueUsd, p.share, p.totalShare]),
+    ).toEqual([
+      ['holding', 'ETH', 'Robinhood Chain', '1000.00', '0.624220', '0.525762'],
+      ['holding', 'WETH', 'Ethereum · wrapped', '402.00', '0.250936', '0.211356'],
+      ['holding', 'ETH', 'Ethereum', '200.00', '0.124844', '0.105152'],
     ]);
+    // A coin held in one form and place has nothing to open.
+    expect(view.overview.byCoin.find((r) => r.label === 'SOL')?.breakdown).toBeNull();
     // $1,602 of $1,902 (with SOL's $300).
     expect(view.overview.concentration.largest).toMatchObject({ key: 'eth', share: '0.842271' });
     // By exact asset, the three ETH holdings stay separate.
     expect(view.overview.byAsset.filter((r) => r.label === 'ETH')).toHaveLength(2);
   });
 
-  it('folds coins worth less than the threshold, even when their holdings are separate', () => {
+  it('gives every coin its own row, down to 0.1% of the total', () => {
     const { overview } = buildHoldingsView(input());
-    expect(overview.byCoin.at(-1)).toMatchObject({ kind: 'small', count: 2, valueUsd: '2.50' });
+    // DUST ($0.50) is under 0.1% of $1,402.50, but a single row never folds on its own.
+    expect(overview.otherBelowShare).toBe('0.001');
+    expect(overview.byCoin.map((r) => [r.kind, r.label, r.share])).toEqual([
+      ['coin', 'ETH', '0.713012'],
+      ['coin', 'SOL', '0.213904'],
+      ['coin', 'MEME', '0.071301'],
+      ['coin', 'X', '0.001426'],
+      ['coin', 'DUST', '0.000357'],
+    ]);
+  });
+
+  it('folds rows under the threshold into Other, which opens to list them', () => {
+    const { overview } = buildHoldingsView(
+      input({ config: { ...config, allocationOtherBelowShare: '0.01' } }),
+    );
+    const other = overview.byCoin.at(-1);
+    expect(other).toMatchObject({
+      kind: 'other',
+      key: 'other',
+      label: null,
+      detail: 'X, DUST',
+      valueUsd: '2.50',
+      share: '0.001783',
+      count: 2,
+    });
+    expect(other?.breakdown?.map((r) => [r.label, r.valueUsd, r.share, r.totalShare])).toEqual([
+      ['X', '2.00', '0.800000', '0.001426'],
+      ['DUST', '0.50', '0.200000', '0.000357'],
+    ]);
+    expect(overview.byCoin.map((r) => r.label)).toEqual(['ETH', 'SOL', 'MEME', null]);
+    // Concentration still counts coins, not the Other row.
+    expect(overview.concentration.largest?.label).toBe('ETH');
+  });
+
+  it('never folds every row into Other', () => {
+    const { overview } = buildHoldingsView(
+      input({ config: { ...config, allocationOtherBelowShare: '1' } }),
+    );
+    expect(overview.byCoin.some((r) => r.kind === 'other')).toBe(false);
+  });
+
+  it('opens wallets and chains to the coins they hold, with shares of the group', () => {
+    const { overview } = buildHoldingsView(input());
+    const [main, memes] = overview.byWallet;
+    expect(main?.breakdown?.map((r) => [r.label, r.valueUsd, r.share])).toEqual([
+      ['ETH', '1000.00', '0.998004'],
+      ['X', '2.00', '0.001996'],
+    ]);
+    expect(memes?.breakdown?.map((r) => [r.label, r.valueUsd, r.share, r.totalShare])).toEqual([
+      ['SOL', '300.00', '0.749064', '0.213904'],
+      ['MEME', '100.00', '0.249688', '0.071301'],
+      ['DUST', '0.50', '0.001248', '0.000357'],
+    ]);
+    expect(overview.byChain.find((r) => r.label === 'Solana')?.breakdown?.length).toBe(3);
+  });
+
+  it('gives each wallet group its share of the total and its 24h move', () => {
+    const [main, memes] = buildHoldingsView(input()).wallets;
+    expect(main).toMatchObject({ share: '0.714439' });
+    expect(memes).toMatchObject({ share: '0.285561' });
+    // No price history in this input: nothing is covered yet.
+    expect(memes?.change24h).toEqual({
+      usd: '0.00',
+      pct: null,
+      coveredValueUsd: '0.00',
+      uncoveredCount: 3,
+    });
   });
 
   it('has no shares or concentration when nothing is priced', () => {
@@ -328,14 +399,27 @@ describe('categories and themes (step 02b)', () => {
     expect(sum).toBeCloseTo(1, 5);
   });
 
-  it('counts a coin in every one of its themes, so theme shares can overlap', () => {
+  it('opens a category to its coins, with shares of the category and of the total', () => {
     const { overview } = buildHoldingsView(tagged());
-    expect(overview.byTheme.map((r) => [r.kind, r.label, r.valueUsd])).toEqual([
-      ['theme', 'V4 Hooks', '1100.00'], // ETH + MEME
-      ['theme', 'AI', '100.00'],
-      ['untagged', null, '302.50'], // SOL, X, DUST
+    const major = overview.byCategory[0];
+    expect(major?.breakdown?.map((r) => [r.kind, r.label, r.share, r.totalShare])).toEqual([
+      ['coin', 'ETH', '0.769231', '0.713012'],
+      ['coin', 'SOL', '0.230769', '0.213904'],
     ]);
-    expect(overview.byTheme.reduce((s, r) => s + Number(r.share), 0)).toBeGreaterThan(1);
+    // Coins inside a group keep their tags, so they can be tagged from there.
+    expect(major?.breakdown?.[0]?.tags?.category?.name).toBe('Major');
+    expect(overview.byCategory.at(-1)?.breakdown?.map((r) => r.label)).toEqual(['X', 'DUST']);
+  });
+
+  it('counts each coin once, under its combination of themes (ADR 0020)', () => {
+    const { overview } = buildHoldingsView(tagged());
+    expect(overview.byTheme.map((r) => [r.kind, r.key, r.label, r.valueUsd])).toEqual([
+      ['theme', 't-hooks', 'V4 Hooks', '1000.00'], // ETH
+      ['theme', 't-ai+t-hooks', 'AI + V4 Hooks', '100.00'], // MEME, in both
+      ['untagged', 'untagged', null, '302.50'], // SOL, X, DUST
+    ]);
+    expect(overview.byTheme.reduce((s, r) => s + Number(r.share), 0)).toBeCloseTo(1, 5);
+    expect(overview.byTheme[1]?.breakdown?.map((r) => r.label)).toEqual(['MEME']);
     expect(buildHoldingsView(tagged()).tags).toEqual({
       categories: [
         { id: 't-major', name: 'Major' },

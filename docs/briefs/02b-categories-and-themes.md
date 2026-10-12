@@ -62,3 +62,7 @@ of the narratives in [step 14](14-narratives-and-theses.md): tags now, theses an
 ## Open questions
 
 - ~~Free-form tags, or category plus themes?~~ Category plus themes (you chose 2026-10-08).
+
+> **Later change (2026-10-09):** the theme view now counts each coin once, under its combination of
+> themes, and has a donut ([02e](02e-allocation-drill-down.md),
+> [ADR 0020](../adr/0020-theme-allocation-by-combination.md)).

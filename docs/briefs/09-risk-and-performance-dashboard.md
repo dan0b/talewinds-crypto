@@ -3,7 +3,7 @@
 - **Phase:** V1 — Trust the numbers, deepen research
 - **Status:** Planned
 - **Depends on:** [06](06-ledger-foundation.md), [07](07-onchain-trade-decoding.md),
-  [08](08-transfers-bridges-reconciliation.md)
+  [08](08-transfers-bridges-reconciliation.md) (and [02f](02f-value-over-time.md))
 - **Written:** 2026-09-27
 - **Build log:** —
 
@@ -16,7 +16,9 @@ portfolio has performed over time.
 
 **In**
 
-- Daily portfolio snapshots (a scheduled job), giving value and P&L over time.
+- P&L over time. (Value over time already exists: step [02f](02f-value-over-time.md) replays it
+  from stored syncs and prices, [ADR 0021](../adr/0021-value-history-replayed.md). Build P&L the same
+  way, from the ledger, rather than as stored daily snapshots.)
 - Exposure by underlying, chain, venue, and account, with concentration warnings at configurable
   thresholds.
 - Perp exposure by notional, shown alongside equity.

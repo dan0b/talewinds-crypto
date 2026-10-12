@@ -73,19 +73,33 @@ meanings. When a new term is introduced, add it here.
 - **Stale** — balances or prices older than their threshold (by default: balances after two missed
   syncs, prices after an hour). Stale data is shown, flagged, never hidden.
 - **Small balance** — a verified, priced holding worth less than the small-balance threshold ($3 by
-  default). Folded into one line in lists, and still counted in every total.
+  default). Folded into one line in lists, and still counted in every total. (The allocation chart
+  folds by share instead: see **Other**.)
 - **Scope** — what the portfolio page shows: all wallets, or one wallet. Totals, notices, the
   overview, and lists all follow it.
 - **Allocation** — each coin's (every form of it, wherever it's held), wallet's, or chain's or
   venue's share of the scope's priced total.
+- **Breakdown** — what an allocation row is made of: a category's, theme's, wallet's, or chain's
+  coins, a coin's holdings (each form in each place), or the rows Other folds. Opening a slice
+  (**drill-down**) shows it as its own chart, with shares of that row and of the total.
+- **Other** (allocation) — the rows worth less than 0.1% of a chart, folded into one row that opens
+  to list them. Only when two or more qualify; Uncategorized and No theme never fold.
 - **Concentration** — the share of the total in the largest coin, and in the top three.
 - **Category** — your label for a coin's role, at most one per coin (e.g. Major, Speculative,
   Stable). The by-category view adds up to 100%, and coins without one are "Uncategorized".
-- **Theme** — your label for what a coin is a bet on, any number per coin (e.g. V4 Hooks). A coin
-  counts in each of its themes, so theme shares can add up to more than 100%. A lightweight
-  precursor of narratives (step 14).
+- **Theme** — your label for what a coin is a bet on, any number per coin (e.g. V4 Hooks). In the
+  theme view a coin counts once, under its **theme combination** (all its themes together, e.g.
+  "Privacy + Quantum"), so the view adds up to 100% ([ADR 0020](adr/0020-theme-allocation-by-combination.md)).
+  A lightweight precursor of narratives (step 14).
 - **Coin key** — how a coin is identified for tags and groupings: a registry ID (`eth`) or, for a
   coin outside the registry, its asset ID. Never a ticker.
+- **Value history** — the scope's total value over time, replayed from stored balance snapshots and
+  prices as the dashboard would have shown it then, counting the assets verified now
+  ([ADR 0021](adr/0021-value-history-replayed.md)). Value, not performance: deposits, withdrawals,
+  and added wallets move it. Where nothing synced it has a **gap**; where a sync was partial the
+  point is **incomplete** (drawn dashed).
+- **Addition** — a wallet or venue account whose tracking began inside a value-history range. Its
+  arrival is a step up in the line, not a gain, so the range's change isn't shown.
 - **24h change** — how current holdings moved in value over 24 hours: the price now against the
   **baseline price**, our own recorded price from the same source about 24 hours earlier. A price
   move, not P&L: deposits, withdrawals, and trades don't count.

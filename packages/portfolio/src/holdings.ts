@@ -171,6 +171,10 @@ export interface WalletGroup {
   /** Null for venue accounts. */
   address: string | null;
   valueUsd: string;
+  /** Fraction of the scope's priced total. */
+  share: string;
+  /** The price move of its visible, priced positions over ~24 hours. */
+  change24h: ChangeSummary;
   hiddenCount: number;
   smallCount: number;
   smallValueUsd: string;
@@ -203,36 +207,59 @@ export interface CoinTags {
   themes: TagRef[];
 }
 
-/** One holding inside a coin's row: where it sits, and in what form. */
-export interface AllocationPart {
-  assetId: string;
-  label: string | null;
-  /** e.g. "Ethereum · wrapped" or "Coinbase". */
-  detail: string;
-  valueUsd: string;
-  share: string;
-}
-
+/**
+ * One row of an allocation chart: a coin, a group of coins (category, theme, wallet, chain), or a
+ * holding inside a coin. Rows nest: `breakdown` is what the row is made of, so any slice can be
+ * opened (step 02e).
+ */
 export interface AllocationRow {
   /**
-   * `small` is the folded row of small balances; `untagged` is the row for coins without a
-   * category (in the by-category view) or without a theme (in the by-theme view).
+   * - `coin`: every form of one coin, wherever it's held (ADR 0019).
+   * - `holding`: one asset inside a coin, i.e. one form in one place (ETH on Ethereum, WETH).
+   * - `untagged`: coins without a category (by category) or without a theme (by theme).
+   * - `other`: rows too small to see, folded together; `breakdown` lists them.
+   * - `small`: small balances folded in `byAsset`.
    */
-  kind: 'asset' | 'coin' | 'wallet' | 'chain' | 'category' | 'theme' | 'untagged' | 'small';
-  /** Asset, coin, wallet, chain, or tag ID (`small` / `untagged` for those rows). */
+  kind:
+    | 'asset'
+    | 'coin'
+    | 'holding'
+    | 'wallet'
+    | 'chain'
+    | 'category'
+    | 'theme'
+    | 'untagged'
+    | 'other'
+    | 'small';
+  /**
+   * Asset, coin, wallet, chain, or tag ID; theme IDs joined by `+` for a combination of themes;
+   * `small` / `untagged` / `other` for those rows.
+   */
   key: string;
-  /** Symbol, wallet name, or chain name; null when unknown (an unnamed wallet). */
+  /**
+   * Symbol, wallet name, chain name, or tag name ("Privacy + Quantum" for a combination); null
+   * when unknown (an unnamed wallet) and for `untagged`, `other`, and `small`.
+   */
   label: string | null;
-  /** A second line: the chain for an asset. */
+  /** A second line: where a coin is held, a group's largest coins, a holding's chain and form. */
   detail: string | null;
   valueUsd: string;
-  /** Fraction of the scope's priced total: "0.25" is 25%. */
+  /**
+   * Fraction of the chart this row is drawn in: of the scope's priced total at the top level, of
+   * the parent row's value inside a breakdown. "0.25" is 25%.
+   */
   share: string;
-  /** For the small-balances row: how many holdings it folds. */
+  /** Fraction of the scope's priced total, at any level. */
+  totalShare: string;
+  /** For `other` and `small`: how many rows or holdings it folds. */
   count: number | null;
   change24h: ChangeSummary;
-  /** For a coin: the holdings that make it up, largest first. */
-  parts: AllocationPart[] | null;
+  /**
+   * What the row is made of, largest first, with the same folding into Other: a group's coins, a
+   * coin's holdings (when it has more than one), or the rows Other folds. Null when there's
+   * nothing to open.
+   */
+  breakdown: AllocationRow[] | null;
   /** For a coin: its category and themes. */
   tags: CoinTags | null;
 }
@@ -240,18 +267,17 @@ export interface AllocationRow {
 export interface Overview {
   /** The scope's priced total: what every share is a fraction of. */
   totalUsd: string;
+  /** Rows worth less than this share of their chart fold into one Other row ("0.001" is 0.1%). */
+  otherBelowShare: string;
   /** Each exact asset (per chain or venue), largest first; small balances folded at the end. */
   byAsset: AllocationRow[];
-  /**
-   * Each coin, wherever and however it's held (ETH + WETH + rsETH + ETH at Coinbase), largest
-   * first; coins worth less than the small-balance threshold fold into one row (ADR 0019).
-   */
+  /** Each coin, wherever and however it's held (ETH + WETH + rsETH + ETH at Coinbase; ADR 0019). */
   byCoin: AllocationRow[];
   /** Each category's share, "Uncategorized" last. Categories don't overlap: adds up to 100%. */
   byCategory: AllocationRow[];
   /**
-   * Each theme's share, "No theme" last. A coin with several themes counts in each, so the shares
-   * can add up to more than 100%.
+   * Each coin counts once, under its full set of themes: one theme, a combination ("Privacy +
+   * Quantum"), or "No theme" (last). Adds up to 100% (ADR 0020).
    */
   byTheme: AllocationRow[];
   /** Empty when the scope is a single wallet. */
@@ -477,6 +503,197 @@ export function summarizeChange(items: Changeable[]): ChangeSummary {
   };
 }
 
+/** What a coin row is built from: one asset's value in scope (a holding, or merged positions). */
+type Piece = Pick<
+  Holding,
+  'assetId' | 'symbol' | 'chainName' | 'underlying' | 'visible' | 'valueUsd' | 'change24h'
+>;
+
+/** A row before its shares are known: they depend on the chart it ends up in. */
+interface Draft {
+  kind: AllocationRow['kind'];
+  key: string;
+  label: string | null;
+  detail: string | null;
+  value: Dec;
+  change24h: ChangeSummary;
+  /** The pieces it covers, so a folded Other row can sum their 24h change. */
+  pieces: Piece[];
+  count?: number;
+  tags?: CoinTags;
+  breakdown?: Draft[];
+  /** Never folded into Other, and listed last (Uncategorized, No theme, Small balances). */
+  pinned?: boolean;
+}
+
+/** "A, B, C +2": a group's first few names, largest first. */
+function nameList(names: (string | null)[]): string {
+  const shown = names.map((n) => n ?? '?');
+  const head = shown.slice(0, 3).join(', ');
+  return shown.length > 3 ? `${head} +${shown.length - 3}` : head;
+}
+
+/** A single piece keeps its exact price-based %, not one rebuilt from rounded cents. */
+function changeOf(pieces: Piece[]): ChangeSummary {
+  const summary = summarizeChange(pieces);
+  const only = pieces.length === 1 ? pieces[0] : undefined;
+  return only?.change24h ? { ...summary, pct: only.change24h.pct } : summary;
+}
+
+/** One asset's positions in several accounts as one piece: same asset, same price and baseline. */
+function mergeByAsset(items: Piece[]): Piece[] {
+  const merged = new Map<string, Piece>();
+  for (const item of items) {
+    const prev = merged.get(item.assetId);
+    if (!prev) {
+      merged.set(item.assetId, item);
+      continue;
+    }
+    merged.set(item.assetId, {
+      ...prev,
+      valueUsd: usd(new Dec(prev.valueUsd ?? '0').plus(item.valueUsd ?? '0')),
+      change24h:
+        prev.change24h && item.change24h
+          ? { ...prev.change24h, usd: usd(new Dec(prev.change24h.usd).plus(item.change24h.usd)) }
+          : (prev.change24h ?? item.change24h),
+    });
+  }
+  return [...merged.values()];
+}
+
+/** Where a coin's holding sits, and in what form: "Ethereum · wrapped", "Coinbase". */
+function partDetail(p: Piece): string {
+  return p.underlying.form === 'native' || p.underlying.form === 'venue'
+    ? p.chainName
+    : `${p.chainName} · ${p.underlying.form}`;
+}
+
+function places(pieces: Piece[]): string {
+  const names = [...new Set(pieces.map((p) => p.chainName))];
+  return names.length > 3
+    ? `${names.slice(0, 3).join(', ')} +${names.length - 3}`
+    : names.join(', ');
+}
+
+const largestFirst = (a: Draft, b: Draft) =>
+  b.value.comparedTo(a.value) || (a.label ?? '').localeCompare(b.label ?? '');
+
+const pieceValue = (p: Piece) => new Dec(p.valueUsd ?? '0');
+
+/**
+ * Coins (ADR 0019): every piece counts toward its coin. A coin held in more than one form or
+ * place opens to its holdings.
+ */
+function coinDrafts(pieces: Piece[], tagsOf: (coinKey: string) => CoinTags): Draft[] {
+  const coins = new Map<string, { symbol: string | null; pieces: Piece[]; value: Dec }>();
+  for (const p of [...pieces].sort((a, b) => pieceValue(b).comparedTo(pieceValue(a)))) {
+    const coin = coins.get(p.underlying.id) ?? {
+      symbol: p.underlying.symbol,
+      pieces: [],
+      value: new Dec(0),
+    };
+    coin.pieces.push(p);
+    coin.value = coin.value.plus(pieceValue(p));
+    coins.set(p.underlying.id, coin);
+  }
+  return [...coins].map(([id, coin]) => ({
+    kind: 'coin',
+    key: id,
+    label: coin.symbol,
+    detail: places(coin.pieces),
+    value: coin.value,
+    change24h: changeOf(coin.pieces),
+    pieces: coin.pieces,
+    tags: tagsOf(id),
+    breakdown:
+      coin.pieces.length > 1
+        ? coin.pieces.map((p) => ({
+            kind: 'holding',
+            key: p.assetId,
+            label: p.symbol,
+            detail: partDetail(p),
+            value: pieceValue(p),
+            change24h: changeOf([p]),
+            pieces: [p],
+          }))
+        : undefined,
+  }));
+}
+
+/** Coins grouped by `groupOf`; coins it puts in no group form the pinned "untagged" row. */
+function groupDrafts(
+  kind: 'category' | 'theme',
+  coins: Draft[],
+  groupOf: (coin: Draft) => { key: string; label: string } | null,
+): Draft[] {
+  const groups = new Map<string, { label: string | null; coins: Draft[] }>();
+  for (const coin of [...coins].sort(largestFirst)) {
+    const group = groupOf(coin);
+    const key = group?.key ?? 'untagged';
+    const entry = groups.get(key) ?? { label: group?.label ?? null, coins: [] };
+    entry.coins.push(coin);
+    groups.set(key, entry);
+  }
+  return [...groups].map(([key, g]) => {
+    const pieces = g.coins.flatMap((c) => c.pieces);
+    return {
+      kind: key === 'untagged' ? 'untagged' : kind,
+      key,
+      label: g.label,
+      detail: nameList(g.coins.map((c) => c.label)),
+      value: g.coins.reduce((s, c) => s.plus(c.value), new Dec(0)),
+      change24h: summarizeChange(pieces),
+      pieces,
+      breakdown: g.coins,
+      pinned: key === 'untagged',
+    };
+  });
+}
+
+function otherOf(rows: Draft[]): Draft {
+  const pieces = rows.flatMap((d) => d.pieces);
+  return {
+    kind: 'other',
+    key: 'other',
+    label: null,
+    detail: nameList(rows.map((d) => d.label)),
+    value: rows.reduce((s, d) => s.plus(d.value), new Dec(0)),
+    change24h: summarizeChange(pieces),
+    pieces,
+    count: rows.length,
+    breakdown: rows,
+  };
+}
+
+/**
+ * Drafts → the rows of one chart whose whole is `whole`, largest first. Rows worth less than
+ * `foldBelow` of the chart fold into one Other row, when at least two do and at least one row
+ * stays out. Pinned rows never fold and come last. Each breakdown is finished the same way, as a
+ * chart of its own row.
+ */
+function finalize(drafts: Draft[], whole: Dec, total: Dec, foldBelow: Dec): AllocationRow[] {
+  const shareOf = (value: Dec, of: Dec) => (of.gt(0) ? ratio(value.div(of)) : '0');
+  const sorted = [...drafts].sort(largestFirst);
+  const loose = sorted.filter((d) => !d.pinned);
+  const pinned = sorted.filter((d) => d.pinned);
+  const tiny = whole.gt(0) ? loose.filter((d) => d.value.div(whole).lt(foldBelow)) : [];
+  const fold = tiny.length >= 2 && tiny.length < loose.length;
+  const rows = fold ? [...loose.filter((d) => !tiny.includes(d)), otherOf(tiny)] : loose;
+  return [...rows, ...pinned].map((d) => ({
+    kind: d.kind,
+    key: d.key,
+    label: d.label,
+    detail: d.detail,
+    valueUsd: usd(d.value),
+    share: shareOf(d.value, whole),
+    totalShare: shareOf(d.value, total),
+    count: d.count ?? null,
+    change24h: d.change24h,
+    breakdown: d.breakdown?.length ? finalize(d.breakdown, d.value, total, foldBelow) : null,
+    tags: d.tags ?? null,
+  }));
+}
+
 /** Pure: allocation, concentration, and 24h change for one scope's holdings and wallets. */
 export function buildOverview(args: {
   totalUsd: string;
@@ -485,194 +702,108 @@ export function buildOverview(args: {
   /** Include the by-wallet breakdown (the all-wallets scope). */
   includeWallets: boolean;
   unpricedCount: number;
-  /** Coins worth less than this (USD) fold into the small-balances row. */
-  smallBalanceUsd: string;
+  /** Rows worth less than this share of their chart fold into Other ("0.001" is 0.1%). */
+  otherBelowShare: string;
   /** A coin's category and themes; none when absent. */
   tagsOf?: (coinKey: string) => CoinTags;
 }): Overview {
   const tagsOf = args.tagsOf ?? (() => ({ category: null, themes: [] }));
   const total = new Dec(args.totalUsd);
-  const shareOf = (value: Dec) => (total.gt(0) ? ratio(value.div(total)) : '0');
-  const row = (
-    r: Omit<AllocationRow, 'share' | 'valueUsd' | 'count' | 'parts' | 'tags'> & {
-      value: Dec;
-      count?: number;
-      parts?: AllocationPart[];
-      tags?: CoinTags;
-    },
-  ): AllocationRow => ({
-    kind: r.kind,
-    key: r.key,
-    label: r.label,
-    detail: r.detail,
-    valueUsd: usd(r.value),
-    share: shareOf(r.value),
-    count: r.count ?? null,
-    change24h: r.change24h,
-    parts: r.parts ?? null,
-    tags: r.tags ?? null,
-  });
-  /** A single holding keeps its exact price-based %, not one rebuilt from rounded cents. */
-  const changeOf = (holdings: Holding[]) => {
-    const summary = summarizeChange(holdings);
-    const only = holdings.length === 1 ? holdings[0] : undefined;
-    return only?.change24h ? { ...summary, pct: only.change24h.pct } : summary;
-  };
-  const byLargest = (a: AllocationRow, b: AllocationRow) =>
-    new Dec(b.valueUsd).comparedTo(new Dec(a.valueUsd)) ||
-    (a.label ?? '').localeCompare(b.label ?? '');
+  const chart = (drafts: Draft[]) => finalize(drafts, total, total, new Dec(args.otherBelowShare));
 
-  // By asset: the scope's holdings, small ones folded into a single row.
+  // By asset: the scope's holdings, small balances folded into a single row (no Other).
   const priced = args.holdings.filter((h) => h.visible && h.valueUsd);
-  const large = priced.filter((h) => !h.small);
   const small = priced.filter((h) => h.small);
-  const byAsset = large.map((h) =>
-    row({
-      kind: 'asset',
-      key: h.assetId,
-      label: h.symbol,
-      detail: h.chainName,
-      value: new Dec(h.valueUsd as string),
-      change24h: changeOf([h]),
+  const byAsset = finalize(
+    [
+      ...priced
+        .filter((h) => !h.small)
+        .map(
+          (h): Draft => ({
+            kind: 'asset',
+            key: h.assetId,
+            label: h.symbol,
+            detail: h.chainName,
+            value: pieceValue(h),
+            change24h: changeOf([h]),
+            pieces: [h],
+          }),
+        ),
+      ...(small.length > 0
+        ? [
+            {
+              kind: 'small',
+              key: 'small',
+              label: null,
+              detail: null,
+              value: small.reduce((s, h) => s.plus(pieceValue(h)), new Dec(0)),
+              change24h: summarizeChange(small),
+              pieces: small,
+              count: small.length,
+              pinned: true,
+            } satisfies Draft,
+          ]
+        : []),
+    ],
+    total,
+    total,
+    new Dec(0),
+  );
+
+  // By coin (ADR 0019): every holding's value counts toward its coin; forms stay visible inside.
+  const coins = coinDrafts(priced, tagsOf);
+  const byCoin = chart(coins);
+
+  // By category and by theme: every coin counts once, small ones included (ADR 0020).
+  const byCategory = chart(
+    groupDrafts('category', coins, (c) => {
+      const category = c.tags?.category;
+      return category ? { key: category.id, label: category.name } : null;
     }),
   );
-  byAsset.sort(byLargest);
-  if (small.length > 0) {
-    byAsset.push(
-      row({
-        kind: 'small',
-        key: 'small',
-        label: null,
-        detail: null,
-        value: small.reduce((s, h) => s.plus(h.valueUsd as string), new Dec(0)),
-        count: small.length,
-        change24h: summarizeChange(small),
-      }),
-    );
-  }
+  const byTheme = chart(
+    groupDrafts('theme', coins, (c) => {
+      const themes = c.tags?.themes ?? [];
+      return themes.length > 0
+        ? { key: themes.map((t) => t.id).join('+'), label: themes.map((t) => t.name).join(' + ') }
+        : null;
+    }),
+  );
 
-  // By coin (ADR 0019): every holding's value counts toward its coin; forms stay visible as parts.
-  const coins = new Map<string, { symbol: string | null; holdings: Holding[]; value: Dec }>();
-  for (const h of priced) {
-    const coin = coins.get(h.underlying.id) ?? {
-      symbol: h.underlying.symbol,
-      holdings: [],
-      value: new Dec(0),
+  // By wallet and by chain: each opens to the coins it holds.
+  const piecesOf = (positions: Position[]) =>
+    mergeByAsset(positions.filter((p) => p.visible && p.valueUsd));
+  const group = (
+    kind: 'wallet' | 'chain',
+    key: string,
+    label: string | null,
+    value: Dec,
+    positions: Position[],
+  ): Draft => {
+    const pieces = piecesOf(positions);
+    return {
+      kind,
+      key,
+      label,
+      detail: null,
+      value,
+      change24h: summarizeChange(positions),
+      pieces,
+      breakdown: coinDrafts(pieces, tagsOf),
     };
-    coin.holdings.push(h);
-    coin.value = coin.value.plus(h.valueUsd as string);
-    coins.set(h.underlying.id, coin);
-  }
-  const partDetail = (h: Holding) =>
-    h.underlying.form === 'native' || h.underlying.form === 'venue'
-      ? h.chainName
-      : `${h.chainName} · ${h.underlying.form}`;
-  const places = (hs: Holding[]) => {
-    const names = [...new Set(hs.map((h) => h.chainName))];
-    return names.length > 3
-      ? `${names.slice(0, 3).join(', ')} +${names.length - 3}`
-      : names.join(', ');
   };
-  const smallBelow = new Dec(args.smallBalanceUsd);
-  const byCoin: AllocationRow[] = [];
-  const smallCoins: Holding[] = [];
-  for (const [id, coin] of coins) {
-    if (coin.value.lt(smallBelow)) {
-      smallCoins.push(...coin.holdings);
-      continue;
-    }
-    byCoin.push(
-      row({
-        kind: 'coin',
-        key: id,
-        label: coin.symbol,
-        detail: places(coin.holdings),
-        value: coin.value,
-        change24h: changeOf(coin.holdings),
-        tags: tagsOf(id),
-        parts: coin.holdings.map((h) => ({
-          assetId: h.assetId,
-          label: h.symbol,
-          detail: partDetail(h),
-          valueUsd: h.valueUsd as string,
-          share: shareOf(new Dec(h.valueUsd as string)),
-        })),
-      }),
-    );
-  }
-  byCoin.sort(byLargest);
-  if (smallCoins.length > 0) {
-    byCoin.push(
-      row({
-        kind: 'small',
-        key: 'small',
-        label: null,
-        detail: null,
-        value: smallCoins.reduce((s, h) => s.plus(h.valueUsd as string), new Dec(0)),
-        count: smallCoins.length,
-        change24h: summarizeChange(smallCoins),
-      }),
-    );
-  }
-
-  // By category and by theme (step 02b): every coin counts, small ones included.
-  const labelList = (symbols: (string | null)[]) => {
-    const names = symbols.map((x) => x ?? '?');
-    const shown = names.slice(0, 3).join(', ');
-    return names.length > 3 ? `${shown} +${names.length - 3}` : shown;
-  };
-  const group = (kind: 'category' | 'theme', keysOf: (coinKey: string) => TagRef[]) => {
-    const buckets = new Map<
-      string,
-      { tag: TagRef | null; coins: string[]; holdings: Holding[]; value: Dec }
-    >();
-    const byValue = [...coins].sort(([, a], [, b]) => b.value.comparedTo(a.value));
-    for (const [id, coin] of byValue) {
-      const tags = keysOf(id);
-      for (const tag of tags.length > 0 ? tags : [null]) {
-        const key = tag?.id ?? 'untagged';
-        const bucket = buckets.get(key) ?? { tag, coins: [], holdings: [], value: new Dec(0) };
-        bucket.coins.push(coin.symbol ?? '?');
-        bucket.holdings.push(...coin.holdings);
-        bucket.value = bucket.value.plus(coin.value);
-        buckets.set(key, bucket);
-      }
-    }
-    const rows = [...buckets].map(([key, b]) =>
-      row({
-        kind: b.tag ? kind : 'untagged',
-        key,
-        label: b.tag?.name ?? null,
-        detail: labelList(b.coins),
-        value: b.value,
-        change24h: summarizeChange(b.holdings),
-      }),
-    );
-    // The untagged row always comes last, whatever its size.
-    return rows.sort((a, b) =>
-      a.kind === 'untagged' ? 1 : b.kind === 'untagged' ? -1 : byLargest(a, b),
-    );
-  };
-  const byCategory = group('category', (id) => {
-    const category = tagsOf(id).category;
-    return category ? [category] : [];
-  });
-  const byTheme = group('theme', (id) => tagsOf(id).themes);
-
-  const positionsOf = (w: WalletGroup) => w.chains.flatMap((c) => c.positions);
   const byWallet = args.includeWallets
-    ? args.wallets
-        .map((w) =>
-          row({
-            kind: 'wallet',
-            key: w.walletId,
-            label: w.name,
-            detail: null,
-            value: new Dec(w.valueUsd),
-            change24h: summarizeChange(positionsOf(w)),
-          }),
-        )
-        .sort(byLargest)
+    ? chart(
+        args.wallets.map((w) =>
+          group(
+            'wallet',
+            w.walletId,
+            w.name,
+            new Dec(w.valueUsd),
+            w.chains.flatMap((c) => c.positions),
+          ),
+        ),
+      )
     : [];
 
   const chains = new Map<string, { name: string; value: Dec; positions: Position[] }>();
@@ -686,24 +817,16 @@ export function buildOverview(args: {
     entry.positions.push(...c.positions);
     chains.set(c.chainId, entry);
   }
-  const byChain = [...chains]
-    .map(([chainId, c]) =>
-      row({
-        kind: 'chain',
-        key: chainId,
-        label: c.name,
-        detail: null,
-        value: c.value,
-        change24h: summarizeChange(c.positions),
-      }),
-    )
-    .sort(byLargest);
+  const byChain = chart(
+    [...chains].map(([chainId, c]) => group('chain', chainId, c.name, c.value, c.positions)),
+  );
 
   const named = byCoin.filter((r) => r.kind === 'coin');
   const first = named[0];
   const top3 = named.slice(0, 3).reduce((s, r) => s.plus(r.valueUsd), new Dec(0));
   return {
     totalUsd: args.totalUsd,
+    otherBelowShare: args.otherBelowShare,
     byAsset,
     byCoin,
     byCategory,
@@ -715,7 +838,7 @@ export function buildOverview(args: {
         first && total.gt(0)
           ? { key: first.key, label: first.label, detail: first.detail, share: first.share }
           : null,
-      top3Share: first && total.gt(0) ? shareOf(top3) : null,
+      top3Share: first && total.gt(0) ? ratio(top3.div(total)) : null,
     },
     change24h: summarizeChange(priced),
     unpricedCount: args.unpricedCount,
@@ -987,6 +1110,15 @@ function buildScopedView(
   };
   const sum = (chains: ChainGroup[], pick: (c: ChainGroup) => string) =>
     usd(chains.reduce((s, c) => s.plus(pick(c)), new Dec(0)));
+  /** A group's value, its share of the scope's total, and its 24h move. */
+  const groupTotals = (chains: ChainGroup[]) => {
+    const valueUsd = sum(chains, (c) => c.valueUsd);
+    return {
+      valueUsd,
+      share: total.gt(0) ? ratio(new Dec(valueUsd).div(total)) : '0',
+      change24h: summarizeChange(chains.flatMap((c) => c.positions)),
+    };
+  };
 
   const wallets: WalletGroup[] = [];
   for (const w of scopedWallets) {
@@ -1003,7 +1135,7 @@ function buildScopedView(
       family: w.family,
       venue: null,
       address: w.address,
-      valueUsd: sum(chains, (c) => c.valueUsd),
+      ...groupTotals(chains),
       hiddenCount: chains.reduce((n, c) => n + c.hiddenCount, 0),
       smallCount: chains.reduce((n, c) => n + c.smallCount, 0),
       smallValueUsd: sum(chains, (c) => c.smallValueUsd),
@@ -1027,7 +1159,7 @@ function buildScopedView(
       family: 'venue',
       venue: venue.data,
       address: null,
-      valueUsd: section.valueUsd,
+      ...groupTotals([section]),
       hiddenCount: section.hiddenCount,
       smallCount: section.smallCount,
       smallValueUsd: section.smallValueUsd,
@@ -1072,7 +1204,7 @@ function buildScopedView(
       wallets,
       includeWallets: walletId === null,
       unpricedCount: unpriced,
-      smallBalanceUsd: config.smallBalanceUsd,
+      otherBelowShare: config.allocationOtherBelowShare,
       tagsOf: tagIndex.of,
     }),
     wallets,

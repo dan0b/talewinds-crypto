@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chartNumber,
   direction,
   formatAmount,
   formatChangePct,
@@ -7,6 +8,7 @@ import {
   formatCompactUsd,
   formatPrice,
   formatShare,
+  formatTickUsd,
   formatUsd,
   shareFraction,
   shortAddress,
@@ -67,5 +69,19 @@ describe('display formatting', () => {
   it('turns shares into bounded fractions for chart geometry', () => {
     expect(shareFraction('0.421215')).toBeCloseTo(0.421215);
     expect(shareFraction('1.000001')).toBe(1);
+  });
+
+  it('labels axis ticks compactly, without float noise', () => {
+    expect(formatTickUsd(0)).toBe('$0');
+    expect(formatTickUsd(500)).toBe('$500');
+    expect(formatTickUsd(40_000)).toBe('$40K');
+    expect(formatTickUsd(40_500)).toBe('$40.5K');
+    expect(formatTickUsd(1_250_000)).toBe('$1.25M');
+    expect(formatTickUsd(0.15000000000000002)).toBe('$0.15');
+  });
+
+  it('turns USD into numbers for chart geometry only', () => {
+    expect(chartNumber('40734.80')).toBe(40734.8);
+    expect(chartNumber('0.004')).toBe(0);
   });
 });

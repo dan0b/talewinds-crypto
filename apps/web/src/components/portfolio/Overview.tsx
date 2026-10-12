@@ -1,5 +1,4 @@
-import { Dec } from '@talewinds/core';
-import { Fragment, useState } from 'react';
+import { Fragment, type MouseEvent, useEffect, useRef, useState } from 'react';
 import type { HoldingsView } from '../../lib/api.ts';
 import { formatChangeUsd, formatShare, formatUsd, shareFraction } from '../../lib/format.ts';
 import { Donut, type DonutSegment } from '../charts/Donut.tsx';
@@ -8,80 +7,93 @@ import { ChangePct, ChangeSummaryCell } from './cells.tsx';
 import { TagEditor, TagManager } from './Tags.tsx';
 
 type Overview = HoldingsView['overview'];
-type Row = Overview['byAsset'][number];
+type Row = Overview['byCoin'][number];
 type Dimension = 'asset' | 'category' | 'theme' | 'wallet' | 'chain';
 
-/** Slices drawn in color (the palette has five, validated as neighbors in order). */
-const NAMED_SLICES = 5;
+/** The palette's eight, validated as neighbors in this order (see styles.css). */
 const SERIES = [
   'var(--color-series-1)',
   'var(--color-series-2)',
   'var(--color-series-3)',
   'var(--color-series-4)',
   'var(--color-series-5)',
+  'var(--color-series-6)',
+  'var(--color-series-7)',
+  'var(--color-series-8)',
 ];
 const OTHER = 'var(--color-series-other)';
-const OTHER_KEY = '__other';
+/** Rows that stand for several things (or for none) are always gray. */
+const GRAY: ReadonlySet<Row['kind']> = new Set(['other', 'untagged', 'small']);
 
-function rowLabel(row: Row, dimension?: Dimension): string {
+function rowLabel(row: Row, dimension: Dimension): string {
+  if (row.kind === 'other') return 'Other';
   if (row.kind === 'small') return 'Small balances';
   if (row.kind === 'untagged') return dimension === 'theme' ? 'No theme' : 'Uncategorized';
   if (row.kind === 'wallet') return row.label ?? 'Unnamed wallet';
   return row.label ?? 'Unknown token';
 }
 
+const NOUNS: Partial<Record<Row['kind'], [string, string]>> = {
+  coin: ['coin', 'coins'],
+  holding: ['holding', 'holdings'],
+  category: ['category', 'categories'],
+  theme: ['theme', 'themes'],
+  wallet: ['wallet', 'wallets'],
+  chain: ['chain', 'chains'],
+};
+
+/** "10 coins, each under 0.1%". */
+function otherDetail(row: Row, threshold: string): string {
+  const [one, many] = NOUNS[row.breakdown?.[0]?.kind ?? 'coin'] ?? ['row', 'rows'];
+  const n = row.count ?? 0;
+  return `${n} ${n === 1 ? one : many}, each under ${formatShare(threshold)}`;
+}
+
 /**
- * Colors by rank within this chart, largest first. The palette only passes the color-blind checks
- * as neighbors in slot order, so slots are never reassigned to follow an asset across charts;
- * the table beside the donut always names each color.
+ * Colors by rank within this chart, largest first, then gray. The palette only passes the
+ * color-blind checks as neighbors in slot order, so slots are never reassigned to follow a coin
+ * across charts; the table beside the donut names every color. A ring closes on itself, and series
+ * 7 fails next to series 1, so a chart never ends on series 7.
  */
 function colorsOf(rows: Row[]): Map<string, string> {
+  const drawn = rows.filter((r) => shareFraction(r.share) > 0);
+  const named = drawn.filter((r) => !GRAY.has(r.kind));
+  const slots = named.length === 7 && drawn.length === 7 ? 6 : SERIES.length;
   const colors = new Map<string, string>();
   let slot = 0;
   for (const row of rows) {
-    const named =
-      row.kind !== 'small' &&
-      row.kind !== 'untagged' &&
-      slot < NAMED_SLICES &&
-      shareFraction(row.share) > 0;
-    colors.set(row.key, named ? (SERIES[slot++] as string) : OTHER);
+    const colored = !GRAY.has(row.kind) && slot < slots && shareFraction(row.share) > 0;
+    colors.set(row.key, colored ? (SERIES[slot++] as string) : OTHER);
   }
   return colors;
 }
 
-/** The named slices, then everything else as one "Other" slice. */
-function segmentsOf(rows: Row[], colors: Map<string, string>): DonutSegment[] {
-  const segments: DonutSegment[] = [];
-  const rest: Row[] = [];
-  for (const row of rows) {
-    const color = colors.get(row.key) ?? OTHER;
-    if (color === OTHER) {
-      if (shareFraction(row.share) > 0) rest.push(row);
-      continue;
-    }
-    segments.push({
+/** One slice per row: the server already folded the rows too small to see into Other. */
+function segmentsOf(rows: Row[], colors: Map<string, string>, dimension: Dimension) {
+  return rows.map(
+    (row): DonutSegment => ({
       key: row.key,
-      label: rowLabel(row),
+      label: rowLabel(row, dimension),
       fraction: shareFraction(row.share),
-      color,
+      color: colors.get(row.key) ?? OTHER,
       shareText: formatShare(row.share),
       valueText: formatUsd(row.valueUsd),
-    });
+      selectable: row.breakdown !== null,
+    }),
+  );
+}
+
+/** Follow `path` (row keys) down the breakdowns, as far as it still exists. */
+function follow(top: Row[], path: string[]): { trail: Row[]; rows: Row[] } {
+  const trail: Row[] = [];
+  let rows = top;
+  for (const key of path) {
+    const next = rows.find((r) => r.key === key);
+    if (!next?.breakdown) break;
+    trail.push(next);
+    rows = next.breakdown;
   }
-  if (rest.length > 0) {
-    // Exact sums for display; the fraction is only for drawing.
-    const share = rest.reduce((s, r) => s.plus(r.share), new Dec(0)).toFixed(6);
-    const value = rest.reduce((s, r) => s.plus(r.valueUsd), new Dec(0)).toFixed(2);
-    segments.push({
-      key: OTHER_KEY,
-      label: rest.length === 1 && rest[0] ? rowLabel(rest[0]) : `Other (${rest.length})`,
-      fraction: shareFraction(share),
-      color: OTHER,
-      shareText: formatShare(share),
-      valueText: formatUsd(value),
-    });
-  }
-  return segments;
+  return { trail, rows };
 }
 
 /** Headline numbers for the scope: value, 24h change, and concentration. */
@@ -92,7 +104,7 @@ export function OverviewStats({ view }: { view: HoldingsView }) {
   const largest = o.concentration.largest;
   const top3 = o.byCoin.filter((r) => r.kind === 'coin').slice(0, 3);
   // The same coin on two chains (ETH, ETH) needs its chain to be told apart.
-  const top3Names = top3.map((r) => rowLabel(r));
+  const top3Names = top3.map((r) => rowLabel(r, 'asset'));
   const top3Hint = top3
     .map((r, i) =>
       top3Names.filter((n) => n === top3Names[i]).length > 1 && r.detail
@@ -158,31 +170,78 @@ const DIMENSION_HEADING: Record<Dimension, string> = {
   chain: 'Chain',
 };
 
-/** Share of the total by asset, wallet, or chain: a donut plus a table of exact values. */
+/** The top of the breadcrumb: "All assets", "All categories", … */
+const DIMENSION_ALL: Record<Dimension, string> = {
+  asset: 'All assets',
+  category: 'All categories',
+  theme: 'All themes',
+  wallet: 'All wallets',
+  chain: 'All chains',
+};
+
+/** What the first column lists, by the kind of rows in it. */
+const COLUMN_HEADING: Partial<Record<Row['kind'], string>> = {
+  coin: 'Asset',
+  holding: 'Held as',
+  category: 'Category',
+  theme: 'Theme',
+  wallet: 'Wallet',
+  chain: 'Chain',
+};
+
+/** Clicks on a row's own buttons and fields don't also open the row. */
+const fromControl = (e: MouseEvent) =>
+  e.target instanceof Element && e.target.closest('button, a, input, select, textarea, label');
+
+/**
+ * The total broken down by asset, category, theme, wallet, or chain: a donut plus a table of exact
+ * values. Any slice or row with something inside opens to show it (Back returns).
+ */
 export function AllocationCard({ view }: { view: HoldingsView }) {
   const all = view.scope.walletId === null;
   const [chosen, setChosen] = useState<Dimension>('asset');
+  const [path, setPath] = useState<string[]>([]);
   const [active, setActive] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
   const [tagging, setTagging] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   // A single wallet has no by-wallet breakdown.
   const dimension: Dimension = !all && chosen === 'wallet' ? 'asset' : chosen;
   const o = view.overview;
   // "By asset" counts each coin once, wherever and however it's held (ADR 0019).
-  const rows = {
+  const top = {
     asset: o.byCoin,
     category: o.byCategory,
     theme: o.byTheme,
     wallet: o.byWallet,
     chain: o.byChain,
   }[dimension];
-  // Themes overlap (a coin can have several), so they get bars, never a part-to-whole donut.
-  const overlapping = dimension === 'theme';
+  const { trail, rows } = follow(top, path);
+  const group = trail.at(-1) ?? null;
   const colors = colorsOf(rows);
-  const segments = segmentsOf(rows, colors);
+  const segments = segmentsOf(rows, colors, dimension);
   const hasTags = view.tags.categories.length + view.tags.themes.length > 0;
-  const sliceOf = (row: Row) => (colors.get(row.key) === OTHER ? OTHER_KEY : row.key);
+  const heading =
+    (group && COLUMN_HEADING[rows.find((r) => !GRAY.has(r.kind))?.kind ?? 'coin']) ||
+    DIMENSION_HEADING[dimension];
+
+  // After opening a level, focus Back: the button that opened it is gone.
+  const back = useRef<HTMLButtonElement>(null);
+  const focusBack = useRef(false);
+  const go = (next: string[]) => {
+    setPath(next);
+    setActive(null);
+    setTagging(null);
+    focusBack.current = next.length > 0;
+  };
+  useEffect(() => {
+    if (!focusBack.current) return;
+    focusBack.current = false;
+    back.current?.focus({ preventScroll: true });
+  });
+  const keysTo = (depth: number) => trail.slice(0, depth).map((r) => r.key);
+  const openRow = (row: Row) => {
+    if (row.breakdown) go([...keysTo(trail.length), row.key]);
+  };
 
   const options: { value: Dimension; label: string }[] = [
     { value: 'asset', label: 'Asset' },
@@ -208,7 +267,7 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
             value={dimension}
             onChange={(d) => {
               setChosen(d);
-              setActive(null);
+              go([]);
             }}
           />
         </div>
@@ -220,66 +279,140 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
           No categories or themes yet. Switch to Asset and use “Tag” on a coin to add some.
         </p>
       )}
-      {segments.length === 0 ? (
+      {group && (
+        <nav
+          aria-label="Where you are in the allocation"
+          className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+        >
+          <Button
+            ref={back}
+            className="px-2 py-1 text-xs"
+            onClick={() => go(keysTo(trail.length - 1))}
+          >
+            ← Back
+          </Button>
+          <button type="button" className="text-muted hover:text-fg" onClick={() => go([])}>
+            {DIMENSION_ALL[dimension]}
+          </button>
+          {trail.map((r, i) => (
+            <Fragment key={r.key}>
+              <span aria-hidden className="text-muted">
+                ›
+              </span>
+              {i === trail.length - 1 ? (
+                <span aria-current="location" className="font-medium">
+                  {rowLabel(r, dimension)}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-muted hover:text-fg"
+                  onClick={() => go(keysTo(i + 1))}
+                >
+                  {rowLabel(r, dimension)}
+                </button>
+              )}
+            </Fragment>
+          ))}
+          <span className="ml-auto text-xs text-muted tabular-nums">
+            {formatUsd(group.valueUsd)} · {formatShare(group.totalShare)} of{' '}
+            {all ? 'the total' : 'this wallet'}
+          </span>
+        </nav>
+      )}
+      {segments.every((s) => s.fraction === 0) ? (
         <EmptyState>No priced holdings to break down yet.</EmptyState>
       ) : (
-        <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
-          {!overlapping && (
+        <div
+          key={`${dimension}/${keysTo(trail.length).join('/')}`}
+          className="fade-in flex flex-col items-center gap-6 md:flex-row md:items-start"
+        >
+          <div className="flex shrink-0 flex-col items-center gap-2">
             <Donut
               segments={segments}
-              label={`Allocation by ${DIMENSION_HEADING[dimension].toLowerCase()}`}
-              centerLabel={all ? 'Total' : 'Wallet'}
-              centerValue={formatUsd(o.totalUsd)}
+              label={
+                group
+                  ? `What ${rowLabel(group, dimension)} is made of`
+                  : `Allocation by ${DIMENSION_HEADING[dimension].toLowerCase()}`
+              }
+              centerLabel={group ? rowLabel(group, dimension) : all ? 'Total' : 'Wallet'}
+              centerValue={formatUsd(group ? group.valueUsd : o.totalUsd)}
               active={active}
               onActiveChange={setActive}
+              onSelect={(key) => {
+                const row = rows.find((r) => r.key === key);
+                if (row) openRow(row);
+              }}
             />
-          )}
-          <div className="w-full min-w-0 flex-1 overflow-x-auto">
+            {!group && rows.some((r) => r.breakdown) && (
+              <p className="text-[11px] text-muted">Click a slice or row to see inside</p>
+            )}
+          </div>
+          <div className="relative w-full min-w-0 flex-1 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
-                  <th className="py-2 pr-3 font-normal">{DIMENSION_HEADING[dimension]}</th>
+                  <th className="py-2 pr-3 font-normal">{heading}</th>
                   <th className="py-2 pr-3 text-right font-normal">Value</th>
                   <th className="py-2 pr-3 text-right font-normal">Share</th>
-                  <th className="py-2 text-right font-normal">24h</th>
+                  <th className="py-2 pr-3 text-right font-normal">24h</th>
+                  <th className="w-4 py-2 font-normal">
+                    <span className="sr-only">Open</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const color = colors.get(row.key) ?? OTHER;
-                  const highlighted = active !== null && active === sliceOf(row);
-                  const parts = row.parts && row.parts.length > 1 ? row.parts : null;
-                  const expanded = parts !== null && open === row.key;
+                  const highlighted = active === row.key;
+                  const openable = row.breakdown !== null;
+                  const name = rowLabel(row, dimension);
                   const editingTags =
                     row.kind === 'coin' && row.tags !== null && tagging === row.key;
                   return (
                     <Fragment key={row.key}>
                       <tr
-                        className={`border-t border-border/60 align-top ${highlighted ? 'bg-canvas/50' : ''}`}
-                        onMouseEnter={() => setActive(sliceOf(row))}
+                        className={`border-t border-border/60 align-top ${highlighted ? 'bg-canvas/50' : ''} ${openable ? 'cursor-pointer' : ''}`}
+                        onMouseEnter={() => setActive(row.key)}
                         onMouseLeave={() => setActive(null)}
+                        onClick={(e) => {
+                          if (openable && !fromControl(e)) openRow(row);
+                        }}
                       >
                         <td className="py-2 pr-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span
                               aria-hidden
                               className="inline-block size-2.5 shrink-0 rounded-sm"
                               style={{ background: color }}
                             />
-                            <span className="font-medium">{rowLabel(row, dimension)}</span>
-                            {row.detail && <Badge>{row.detail}</Badge>}
-                            {parts && (
+                            {openable ? (
                               <button
                                 type="button"
-                                className="rounded px-1 text-xs text-muted hover:text-fg"
-                                aria-expanded={expanded}
-                                aria-label={`${expanded ? 'Hide' : 'Show'} where ${rowLabel(row)} is held`}
-                                onClick={() => setOpen(expanded ? null : row.key)}
+                                className="font-medium hover:underline"
+                                aria-label={`${name}: show what's inside`}
+                                onClick={() => openRow(row)}
                               >
-                                {parts.length} {expanded ? '▾' : '▸'}
+                                {name}
                               </button>
+                            ) : (
+                              <span className="font-medium">{name}</span>
+                            )}
+                            {(row.kind === 'coin' || row.kind === 'holding') && row.detail && (
+                              <Badge>{row.detail}</Badge>
                             )}
                           </div>
+                          {(row.kind === 'category' ||
+                            row.kind === 'theme' ||
+                            row.kind === 'untagged') &&
+                            row.detail && (
+                              <div className="mt-0.5 pl-4.5 text-xs text-muted">{row.detail}</div>
+                            )}
+                          {row.kind === 'other' && (
+                            <div className="mt-0.5 pl-4.5 text-xs text-muted">
+                              {otherDetail(row, o.otherBelowShare)}: {row.detail}
+                            </div>
+                          )}
                           {row.kind === 'coin' && row.tags && (
                             <div className="mt-1 flex flex-wrap items-center gap-1 pl-4.5">
                               {row.tags.category && (
@@ -302,12 +435,6 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                               </button>
                             </div>
                           )}
-                          {row.kind === 'small' && row.count !== null && (
-                            <div className="mt-0.5 pl-4.5 text-xs text-muted">
-                              {row.count} {row.count === 1 ? 'holding' : 'holdings'}, each under{' '}
-                              {formatUsd(view.small.thresholdUsd)}
-                            </div>
-                          )}
                         </td>
                         <td className="py-2 pr-3 text-right tabular-nums">
                           {formatUsd(row.valueUsd)}
@@ -323,51 +450,43 @@ export function AllocationCard({ view }: { view: HoldingsView }) {
                               }}
                             />
                           </div>
+                          {group && (
+                            <div className="mt-1 text-[11px] whitespace-nowrap text-muted">
+                              {formatShare(row.totalShare)} of total
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 text-right">
+                        <td className="py-2 pr-3 text-right">
                           <ChangeSummaryCell change={row.change24h} />
+                        </td>
+                        <td aria-hidden className="py-2 text-right text-muted">
+                          {openable ? '›' : ''}
                         </td>
                       </tr>
                       {editingTags && row.tags && (
                         <tr>
-                          <td colSpan={4} className="bg-canvas/40 px-3 py-3">
+                          <td colSpan={5} className="bg-canvas/40 px-3 py-3">
                             <TagEditor
                               coinKey={row.key}
-                              coinLabel={rowLabel(row)}
+                              coinLabel={name}
                               tags={row.tags}
                               all={view.tags}
                             />
                           </td>
                         </tr>
                       )}
-                      {expanded &&
-                        parts.map((part) => (
-                          <tr key={part.assetId} className="text-xs text-muted">
-                            <td className="py-1 pr-3 pl-4.5">
-                              {part.label ?? 'Unknown token'}{' '}
-                              <span className="text-muted/80">· {part.detail}</span>
-                            </td>
-                            <td className="py-1 pr-3 text-right tabular-nums">
-                              {formatUsd(part.valueUsd)}
-                            </td>
-                            <td className="py-1 pr-3 text-right tabular-nums">
-                              {formatShare(part.share)}
-                            </td>
-                            <td />
-                          </tr>
-                        ))}
                     </Fragment>
                   );
                 })}
               </tbody>
             </table>
-            {overlapping && (
+            {dimension === 'theme' && !group && hasTags && (
               <p className="mt-2 text-xs text-muted">
-                A coin with several themes counts in each, so these shares can add up to more than
-                100%.
+                Each coin counts once: a coin with several themes is listed under all of them
+                together, so the shares add up to 100%.
               </p>
             )}
-            {o.unpricedCount > 0 && (
+            {!group && o.unpricedCount > 0 && (
               <p className="mt-2 text-xs text-muted">
                 {o.unpricedCount} verified {o.unpricedCount === 1 ? 'holding has' : 'holdings have'}{' '}
                 no price, so {o.unpricedCount === 1 ? "it isn't" : "they aren't"} in any share.

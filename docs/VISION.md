@@ -120,3 +120,5 @@ Structured research → my decision → on-chain activity → portfolio/performa
 | [0017](adr/0017-view-only-venue-keys.md) | View-only venue keys may be used outside execution, checked before every sync |
 | [0018](adr/0018-venue-assets.md) | Venue assets: venue-scoped identity, exact amounts, venue prices |
 | [0019](adr/0019-underlying-grouping.md) | Underlying grouping: a hand-curated registry; wrapped and staked count toward their coin |
+| [0020](adr/0020-theme-allocation-by-combination.md) | Theme allocation: each coin once, by its combination of themes |
+| [0021](adr/0021-value-history-replayed.md) | Value history: replayed from stored balances and prices, nothing new stored |

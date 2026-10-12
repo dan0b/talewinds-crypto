@@ -19,11 +19,14 @@
 }
 
 /*
- * Chart series, in a fixed order. Validated for color-blind safety on the surface (#13161c) as
- * NEIGHBORS IN THIS ORDER only, so assign them by rank within a chart (largest = 1), never out of
- * order. "Other" (folded slices) passes against all five; it's dimmer than 3:1, so every chart
- * using it also lists its values in a table. Plain variables rather than @theme tokens: Tailwind
- * only emits theme variables it finds used in class names, and charts read these via var().
+ * Chart series: the dataviz reference palette's eight, dark steps, in a fixed order. Validated for
+ * color-blind safety on the surface (#13161c) as NEIGHBORS IN THIS ORDER only (worst adjacent CVD
+ * ΔE 8.4, normal vision 19.3), so assign them by rank within a chart (largest = 1), never out of
+ * order. A donut is a ring, so its last slice also touches slice 1: every slot passes next to 1
+ * except 7, so a chart never ends on series 7 (Overview's colorsOf grays it). "Other" (folded and
+ * untagged slices) passes against all eight; it's dimmer than 3:1, so every chart using it also
+ * lists its values in a table. Plain variables rather than @theme tokens: Tailwind only emits
+ * theme variables it finds used in class names, and charts read these via var().
  */
 :root {
   --color-series-1: #3987e5;
@@ -31,7 +34,25 @@
   --color-series-3: #199e70;
   --color-series-4: #c98500;
   --color-series-5: #d55181;
+  --color-series-6: #008300;
+  --color-series-7: #9085e9;
+  --color-series-8: #e66767;
   --color-series-other: #4b515b;
+}
+
+/* A short fade when a view's content is replaced (e.g. opening a slice). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in 150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-in {
+    animation: none;
+  }
 }
 
 html {

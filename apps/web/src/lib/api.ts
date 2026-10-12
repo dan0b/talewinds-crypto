@@ -9,6 +9,7 @@ import { hc, type InferResponseType } from 'hono/client';
 export const api = hc<AppType>(window.location.origin).api;
 
 export type HoldingsView = InferResponseType<typeof api.portfolio.holdings.$get, 200>;
+export type ValueHistory = InferResponseType<typeof api.portfolio.history.$get, 200>;
 export type Holding = HoldingsView['holdings'][number];
 export type AccountSyncStatus = HoldingsView['accounts'][number];
 

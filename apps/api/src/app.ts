@@ -1,6 +1,11 @@
 import { AssetStatus, CHAIN_KEYS, CoinKey, TagKind, TagName } from '@talewinds/core';
 import type { AccountRow, HeartbeatRow } from '@talewinds/db';
-import type { HoldingsView } from '@talewinds/portfolio';
+import {
+  HISTORY_RANGES,
+  type HistoryRange,
+  type HoldingsView,
+  type ValueHistory,
+} from '@talewinds/portfolio';
 import type { SourceDescription } from '@talewinds/sources';
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
@@ -17,6 +22,8 @@ export interface ApiDeps {
   listAccounts(): Promise<AccountRow[]>;
   /** Holdings for all wallets, or one (`walletId`). Throws `Unknown wallet …` if it doesn't exist. */
   getHoldings(options: { includeHidden: boolean; walletId: string | null }): Promise<HoldingsView>;
+  /** Total value over a range, for all wallets or one (step 02f). Throws `Unknown wallet …`. */
+  getValueHistory(options: { range: HistoryRange; walletId: string | null }): Promise<ValueHistory>;
   /** Enqueue a portfolio sync. `queued: false` means one is already waiting. */
   requestSync(): Promise<{ queued: boolean }>;
   setAssetStatus(
@@ -77,6 +84,12 @@ const StatusBody = z.object({
 const HoldingsQuery = z.object({
   hidden: z.enum(['0', '1']).optional(),
   /** Scope the view to one wallet. */
+  wallet: z.uuid().optional(),
+});
+
+const HistoryQuery = z.object({
+  range: z.enum(HISTORY_RANGES).default('1w'),
+  /** Scope the history to one wallet. */
   wallet: z.uuid().optional(),
 });
 
@@ -150,6 +163,16 @@ export function createApp(deps: ApiDeps) {
           await deps.getHoldings({ includeHidden: hidden === '1', walletId: wallet ?? null }),
           200,
         );
+      } catch (err) {
+        if (errorMessage(err).startsWith('Unknown wallet'))
+          return c.json({ error: 'wallet not found' }, 404);
+        throw err;
+      }
+    })
+    .get('/portfolio/history', valid('query', HistoryQuery), async (c) => {
+      const { range, wallet } = c.req.valid('query');
+      try {
+        return c.json(await deps.getValueHistory({ range, walletId: wallet ?? null }), 200);
       } catch (err) {
         if (errorMessage(err).startsWith('Unknown wallet'))
           return c.json({ error: 'wallet not found' }, 404);

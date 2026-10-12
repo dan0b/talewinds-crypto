@@ -1,12 +1,20 @@
 import type { ChainKey } from '@talewinds/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Fragment, useState } from 'react';
+import { Fragment, type MouseEvent, useState } from 'react';
 import { api, type ChainGroup, okJson, type Position, type WalletGroup } from '../../lib/api.ts';
-import { formatAmount, formatUsd, shortAddress, timeAgo } from '../../lib/format.ts';
+import {
+  formatAmount,
+  formatChangeUsd,
+  formatShare,
+  formatUsd,
+  shortAddress,
+  timeAgo,
+} from '../../lib/format.ts';
 import { Badge, Button, EmptyState } from '../ui.tsx';
 import {
   AssetCell,
   ChangeCell,
+  ChangePct,
   MarketCapCell,
   PriceCell,
   SmallBalancesRow,
@@ -260,7 +268,7 @@ function ChainSection({
           </EmptyState>
         </div>
       ) : (
-        <div className="overflow-x-auto px-3">
+        <div className="relative overflow-x-auto px-3">
           <table className="w-full text-sm">
             {/* Only small balances here: the folded row stands alone, without column headers. */}
             {listed.length > 0 && (
@@ -299,62 +307,169 @@ function ChainSection({
   );
 }
 
-/** Holdings grouped wallet → chain (the default view). */
+/** The most serious sync problem across a wallet's chains, for its header; null when all is well. */
+function syncProblem(
+  wallet: WalletGroup,
+): { tone: 'bad' | 'warn' | 'neutral'; text: string } | null {
+  const accounts = wallet.chains.map((c) => c.sync);
+  const count = (pick: (a: (typeof accounts)[number]) => boolean) => accounts.filter(pick).length;
+  const of = (n: number) => (wallet.kind === 'venue' ? '' : ` (${n} of ${accounts.length})`);
+  const failed = count((a) => a.syncSupported && a.lastRun?.status === 'failed');
+  if (failed) return { tone: 'bad', text: `sync failed${of(failed)}` };
+  const never = count((a) => a.syncSupported && !a.lastRun);
+  if (never) return { tone: 'warn', text: `never synced${of(never)}` };
+  const incomplete = count((a) => a.incomplete);
+  if (incomplete) return { tone: 'warn', text: `incomplete${of(incomplete)}` };
+  const stale = count((a) => a.stale);
+  if (stale) return { tone: 'warn', text: `stale${of(stale)}` };
+  if (accounts.every((a) => !a.syncSupported)) return { tone: 'neutral', text: 'not set up' };
+  return null;
+}
+
+/** Clicks on the header's own buttons and fields don't also fold the card. */
+const fromControl = (e: MouseEvent) =>
+  e.target instanceof Element && e.target.closest('button, a, input, select, textarea, label');
+
+/**
+ * Holdings grouped wallet → chain (the default view). Each card folds down to its header (name,
+ * value, share, 24h change, chains, and asset count) by clicking it.
+ */
 export function WalletGroups({
   wallets,
   showHidden,
   showSmall,
   smallThresholdUsd,
+  showShare,
+  collapsed,
+  onToggle,
 }: {
   wallets: WalletGroup[];
   showHidden: boolean;
   showSmall: boolean;
   smallThresholdUsd: string;
+  /** Show each wallet's share of the total (not useful when the page shows one wallet). */
+  showShare: boolean;
+  collapsed: ReadonlySet<string>;
+  onToggle: (walletId: string) => void;
 }) {
   if (wallets.length === 0) {
     return <EmptyState>No wallets yet. Use “Add wallet” above.</EmptyState>;
   }
   return (
-    <div className="space-y-4">
-      {wallets.map((w) => (
-        <section key={w.walletId} className="rounded-lg border border-border bg-surface p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <WalletName wallet={w} />
-              <div className="mt-1 flex items-center gap-2 text-xs text-muted">
-                <Badge>{familyLabel(w.family)}</Badge>
-                {w.address && (
-                  <span className="font-mono" title={w.address}>
-                    {shortAddress(w.address)}
-                  </span>
-                )}
+    <div className="space-y-3">
+      {wallets.map((w) => {
+        const open = !collapsed.has(w.walletId);
+        const body = `wallet-${w.walletId}`;
+        const name = w.name ?? (w.kind === 'venue' ? 'Venue account' : 'Unnamed wallet');
+        const assets = w.chains.reduce(
+          (n, c) => n + c.positions.filter((p) => p.visible).length,
+          0,
+        );
+        const problem = syncProblem(w);
+        const chains = w.chains.map((c) => c.chainName).join(', ');
+        const change = w.change24h;
+        return (
+          <section key={w.walletId} className="rounded-lg border border-border bg-surface">
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: the chevron is the keyboard toggle; clicking the rest of the header is a mouse shortcut. */}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: as above. */}
+            <div
+              className={`flex cursor-pointer flex-wrap items-start justify-between gap-3 px-4 pt-3 ${open ? 'pb-1' : 'pb-3'}`}
+              onClick={(e) => {
+                if (!fromControl(e)) onToggle(w.walletId);
+              }}
+            >
+              <div className="flex min-w-0 items-start gap-2">
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={body}
+                  aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`}
+                  onClick={() => onToggle(w.walletId)}
+                  className="mt-1 shrink-0 rounded p-0.5 text-muted hover:text-fg"
+                >
+                  <svg
+                    aria-hidden
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    className={`transition-transform ${open ? 'rotate-90' : ''}`}
+                  >
+                    <path
+                      d="M5 3l4 4-4 4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div className="min-w-0">
+                  <WalletName wallet={w} />
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                    <Badge>{familyLabel(w.family)}</Badge>
+                    {w.address && (
+                      <span className="font-mono" title={w.address}>
+                        {shortAddress(w.address)}
+                      </span>
+                    )}
+                    {/* Only where it adds something: "Solana" twice says nothing new. */}
+                    {w.kind === 'wallet' && chains !== familyLabel(w.family) && (
+                      <span>{chains}</span>
+                    )}
+                    <span>
+                      {assets} {assets === 1 ? 'asset' : 'assets'}
+                      {!showHidden && w.hiddenCount > 0 ? ` · ${w.hiddenCount} hidden` : ''}
+                    </span>
+                    {problem && <Badge tone={problem.tone}>{problem.text}</Badge>}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold tabular-nums">{formatUsd(w.valueUsd)}</div>
+                <div className="flex flex-wrap items-center justify-end gap-x-2 text-xs text-muted">
+                  {showShare && (
+                    <span className="tabular-nums">{formatShare(w.share)} of total</span>
+                  )}
+                  {change.pct !== null && (
+                    <span
+                      className="flex items-center gap-1"
+                      title={
+                        change.uncoveredCount > 0
+                          ? `24h price move of ${formatUsd(change.coveredValueUsd)} of it; ${change.uncoveredCount} ${change.uncoveredCount === 1 ? 'holding has' : 'holdings have'} no price from 24 hours ago yet`
+                          : '24h price move of what it holds now (not P&L)'
+                      }
+                    >
+                      <ChangePct pct={change.pct} />
+                      <span className="tabular-nums">{formatChangeUsd(change.usd)}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-lg font-semibold tabular-nums">{formatUsd(w.valueUsd)}</div>
-              {!showHidden && w.hiddenCount > 0 && (
-                <div className="text-xs text-muted">{w.hiddenCount} hidden</div>
-              )}
-            </div>
-          </div>
-          {w.untrackedChains.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-3">
-              {w.untrackedChains.map((c) => (
-                <TrackChain key={c.key} wallet={w} chain={c} />
-              ))}
-            </div>
-          )}
-          {w.chains.map((c) => (
-            <ChainSection
-              key={c.accountId}
-              chain={c}
-              showHidden={showHidden}
-              showSmall={showSmall}
-              smallThresholdUsd={smallThresholdUsd}
-            />
-          ))}
-        </section>
-      ))}
+            {open && (
+              <div id={body} className="px-4 pb-4">
+                {w.untrackedChains.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {w.untrackedChains.map((c) => (
+                      <TrackChain key={c.key} wallet={w} chain={c} />
+                    ))}
+                  </div>
+                )}
+                {w.chains.map((c) => (
+                  <ChainSection
+                    key={c.accountId}
+                    chain={c}
+                    showHidden={showHidden}
+                    showSmall={showSmall}
+                    smallThresholdUsd={smallThresholdUsd}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
